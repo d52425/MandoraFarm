@@ -1279,6 +1279,7 @@
       var rockGroup = null, beachGroup = null, gatherHitMeshes = [], sunLight = null;
       var magicGroup = null, magicSpin = null, magicHitMesh = null;
       var magicDiscMat = null, magicRingMat = null;
+      var houseGroup = null, treeGroups = [];
       var threeOK = typeof THREE !== "undefined";
 
       function mat(color, opts) {
@@ -1575,6 +1576,20 @@
         if (rockGroup) rockGroup.position.set(wx(ROCK_SPOT.x), 0, wz(ROCK_SPOT.y));
         if (beachGroup) beachGroup.position.set(wx(BEACH_SPOT.x), 0, wz(BEACH_SPOT.y));
       }
+      /* Static props placed from logical coords (cottage, magic circle,
+         trees) are built once at init, but wx/wz depend on LOGICAL_W/H —
+         so when an expansion grows the map, their world spot must be
+         re-derived or they drift away from where the game logic (and the
+         witch, who is placed per-frame) thinks they are. The magic circle
+         visibly "vanished" from beside the cottage for exactly this
+         reason; re-lay these out on every rebuild. */
+      function layoutProps() {
+        if (houseGroup) houseGroup.position.set(wx(52), 0, wz(58));
+        if (magicGroup) magicGroup.position.set(wx(MAGIC.x), 0, wz(MAGIC.y));
+        for (var ti = 0; ti < treeGroups.length; ti++) {
+          treeGroups[ti].g.position.set(wx(treeGroups[ti].x), 0, wz(treeGroups[ti].y));
+        }
+      }
       /* Gathering spots: rock pile at the northern mountain foot,
          shells on the southern beach. Clickable via gatherHitMeshes. */
       function buildGatherSpots() {
@@ -1605,6 +1620,36 @@
         beachHit.rotation.x = -Math.PI / 2; beachHit.position.y = 0.06;
         beachHit.userData.gather = "beach";
         beachGroup.add(beachHit); gatherHitMeshes.push(beachHit);
+        // Pier （突堤） jutting SOUTH (+Z, toward the sea) off the beach —
+        // the landmark that says "sea goods are gathered here". It lives
+        // inside beachGroup, which buildGatherSpots() rebuilds on every
+        // expansion, so the pier is rebuilt along with the map and never
+        // goes missing the way a one-off prop could.
+        (function buildPier() {
+          var wood = dark ? 0x6b4a2a : 0xa9743f, woodDark = dark ? 0x54381e : 0x8a5a2e;
+          for (var pz = 0; pz < 7; pz++) {
+            var plank = box(0.88, 0.07, 0.27, pz % 2 ? wood : woodDark, 0, 0.17, 0.42 + pz * 0.29);
+            plank.castShadow = false;
+            beachGroup.add(plank);
+          }
+          // Support posts reaching down toward the water
+          [0.55, 1.45, 2.25].forEach(function (pz2) {
+            beachGroup.add(box(0.09, 1.5, 0.09, woodDark, -0.36, -0.55, pz2));
+            beachGroup.add(box(0.09, 1.5, 0.09, woodDark, 0.36, -0.55, pz2));
+          });
+          // Crate + lantern at the pier head, a shell waiting on the deck
+          beachGroup.add(box(0.32, 0.32, 0.32, 0xb0824a, 0.22, 0.37, 2.18));
+          beachGroup.add(box(0.06, 0.52, 0.06, woodDark, -0.34, 0.46, 2.28));
+          beachGroup.add(ball(0.09, 0xffd94d, -0.34, 0.78, 2.28, 1));
+          beachGroup.add(ball(0.08, 0xffc7d6, -0.15, 0.25, 1.9, 0.55));
+          // The whole pier is part of the beach gathering click target
+          var pierHit = new THREE.Mesh(new THREE.PlaneGeometry(1.15, 2.7),
+            new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
+          pierHit.rotation.x = -Math.PI / 2;
+          pierHit.position.set(0, 0.22, 1.35);
+          pierHit.userData.gather = "beach";
+          beachGroup.add(pierHit); gatherHitMeshes.push(pierHit);
+        })();
         scene.add(beachGroup);
         layoutScenery();
       }
@@ -1653,6 +1698,7 @@
         buildPlotMeshes();
         buildScenery();
         buildGatherSpots();
+        layoutProps();
         if (sunLight) {
           var hb = currentHalf() + 2;
           sunLight.shadow.camera.left = -hb; sunLight.shadow.camera.right = hb;
@@ -1695,6 +1741,7 @@
 
         // House (top-left) — the witch's cottage
         var house = new THREE.Group();
+        houseGroup = house;
         house.add(box(1.5, 1.0, 1.3, 0xf3e6cf, 0, 0.5, 0));
         var roof = cone(1.25, 0.8, 0xb5502e, 0, 1.4, 0, 4);
         roof.rotation.y = Math.PI / 4;
@@ -1764,6 +1811,7 @@
           tree.add(ball(0.52, dark ? 0x2e5d33 : 0x4d9a41, 0, 0.95, 0, 0.85));
           tree.add(ball(0.38, dark ? 0x356b3a : 0x58a447, 0.3, 0.75, 0.15, 0.85));
           tree.position.set(wx(tp[0]), 0, wz(tp[1]));
+          treeGroups.push({ g: tree, x: tp[0], y: tp[1] });
           scene.add(tree);
         });
         // Clouds

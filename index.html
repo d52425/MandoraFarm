@@ -44,6 +44,12 @@
         flex-direction: column;
         align-items: center;
         overscroll-behavior: none;
+        /* Dynamic viewport height: follows the visible area as the
+           mobile browser chrome (Safari / Chrome address bar) shows
+           and hides, instead of a fixed pixel height. vh first as a
+           fallback for older browsers, dvh wins where supported. */
+        min-height: 100vh;
+        min-height: 100dvh;
       }
       .wrap {
         width: 100%;
@@ -52,8 +58,14 @@
         display: flex;
         flex-direction: column;
         gap: 10px;
+        /* The page is laid out against the dynamic viewport height
+           (target handset: 427 x 952 CSS px) so farm name + stage +
+           folded help fit on one screen with no scrolling; if the
+           help is opened the page may grow and scroll instead. */
+        min-height: 100vh;
+        min-height: 100dvh;
       }
-      .farm-name { display: flex; align-items: baseline; gap: 8px; padding: 0 2px; }
+      .farm-name { display: flex; align-items: baseline; gap: 8px; padding: 0 2px; flex-wrap: wrap; }
       .farm-name .name { font-size: 20px; font-weight: 800; letter-spacing: .05em; }
       .farm-name .tag { font-size: 11px; color: var(--ink-soft); font-weight: 600; }
       /* ---------- HUD (in-canvas overlay pills) ---------- */
@@ -114,11 +126,42 @@
         overflow: hidden;
         box-shadow: var(--shadow);
         border: 1px solid var(--line);
-        aspect-ratio: 4 / 5;
+        /* Height comes from the viewport, not a fixed aspect ratio:
+           the stage flexes to fill whatever height the 100dvh page
+           leaves after the farm name and the folded help, capped so
+           it never pushes the page past one dynamic-viewport screen.
+           The 3D camera re-fits to the real stage aspect on resize,
+           so any height in this range frames the whole island. */
+        flex: 1 1 auto;
+        min-height: 340px;
+        max-height: calc(100vh - 118px);
+        max-height: calc(100dvh - 118px);
         background: linear-gradient(180deg, #a5dcf5 0%, #cdeede 55%, #dff3e2 100%);
       }
+      /* Phone tuning, aimed at a 427 x 952 CSS-px viewport (recent
+         iPhone / Pixel class): the stage spans the full width, the
+         top overlay row wraps onto the sky margin instead of
+         overflowing sideways, pills shrink a touch, and the main
+         tap targets stay >= 44px. */
       @media (max-width: 480px) {
-        .stage { aspect-ratio: 3 / 4; }
+        .wrap { padding: 8px 10px calc(12px + env(safe-area-inset-bottom)); gap: 8px; }
+        .farm-name .name { font-size: 19px; }
+        .ov-top { padding: 7px 8px 0; gap: 5px; }
+        .ov-row { flex-wrap: wrap; }
+        .stat { padding: 4px 9px; font-size: 14px; }
+        .stat .ic { font-size: 16px; }
+        .day-chip { padding: 6px 9px; font-size: 11.5px; }
+        .view-reset { min-height: 32px; padding: 6px 10px; }
+        .matbar { font-size: 11.5px; padding: 4px 7px; gap: 5px; }
+        .matbar .m { padding: 3px 7px; }
+        .ov-dock { gap: 5px; padding: 14px 8px calc(8px + env(safe-area-inset-bottom)); }
+        .pop-line { font-size: 12px; }
+        .title-card h1 { font-size: 28px; }
+      }
+      /* Short landscape screens: let the stage shrink further so
+         the page stays usable instead of forcing a tall scroll. */
+      @media (max-height: 480px) {
+        .stage { min-height: 260px; }
       }
       @media (prefers-color-scheme: dark) {
         .stage { background: linear-gradient(180deg, #1d3442 0%, #274434 60%, #2c4a3a 100%); }

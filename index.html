@@ -116,8 +116,8 @@
       @media (prefers-color-scheme: dark) {
         .stage { background: linear-gradient(180deg, #1d3442 0%, #274434 60%, #2c4a3a 100%); }
       }
-      #gl { position: absolute; inset: 0; cursor: pointer; }
-      #gl canvas { display: block; }
+      #gl { position: absolute; inset: 0; cursor: grab; }
+      #gl canvas { display: block; touch-action: none; }
       #fx { position: absolute; inset: 0; pointer-events: none; }
       .toast {
         position: absolute;
@@ -298,6 +298,15 @@
         font-size: 11px; font-weight: 700; line-height: 1.5;
         padding: 6px 10px; border-radius: 10px; pointer-events: none;
       }
+      .view-reset {
+        position: absolute; right: 10px; bottom: 10px; z-index: 4;
+        background: rgba(20,30,16,.78); color: #fff;
+        border: 1px solid rgba(255,255,255,.35);
+        font-family: inherit; font-size: 12px; font-weight: 700;
+        padding: 7px 12px; border-radius: 999px; cursor: pointer;
+        box-shadow: var(--shadow);
+      }
+      .view-reset:active { transform: scale(.96); }
       .matbar {
         display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
         background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
@@ -414,6 +423,7 @@
           </div>
         </div>
         <div class="compass">🧭 北＝右上 ⛰️山（石・水晶）<br>南＝左下 🌊海（貝・珊瑚・真珠）</div>
+        <button class="view-reset" id="viewReset" type="button" style="display:none;">🔍 全体表示</button>
         <div class="toast" id="toast"></div>
         <div class="goal-banner" id="goalBanner">
           <div class="goal-card">
@@ -477,7 +487,8 @@
         <strong>ゴーレムは素材で種類が変わり、寿命制です</strong>：土ゴーレム（土×3・貝×1／120秒・20回）、石ゴーレム（石×3・土×2・珊瑚×1／190秒・32回）、水晶ゴーレム（水晶×2・真珠×1・石×1／260秒・45回）。時間か作業回数が尽きると土に還るので、素材を集めて再召喚してください。<br>
         <strong>素材の採取場所</strong>：土＝作物を収穫すると+1／石・水晶＝<strong>北（画面右上）の山の岩場</strong>をクリック／貝・珊瑚・真珠＝<strong>南（画面左下）の海の浜辺</strong>をクリック。マップの方位は右上が北（山）、左下が南（海）です。<br>
         <strong>畑の拡張</strong>は1畝ずつではなく<strong>区画ごとドカン</strong>と買います。買うと浮島マップ自体が物理的に広がって新しい畝が増えます（第1拡張 250枚・Lv.3／第2拡張 700枚・Lv.5／第3拡張 1,600枚・Lv.6）。<br>
-        コインが尽きて種が買えなくなっても、種屋のおばあちゃんがヨモギの種を分けてくれるので大丈夫。
+        コインが尽きて種が買えなくなっても、種屋のおばあちゃんがヨモギの種を分けてくれるので大丈夫。<br>
+        <strong>画面の移動</strong>：3D画面をドラッグするとスクロール（少しのドラッグはクリックとして扱います）、マウスホイール／2本指ピンチで拡大・縮小できます。右下の「🔍 全体表示」ボタンで島全体の表示に戻ります。拡張で島が広がって桟橋などが見切れたら、ドラッグで南（左下）まで動かしてみてください。
       </p>
     </div>
 
@@ -494,11 +505,20 @@
          拡張区画の配置もこの方位を基準にする。
          ============================================================ */
       var LOGICAL = 528; // base size; kept for legacy references
-      var LOGICAL_W = 528, LOGICAL_H = 528; // grows as the island expands
+      var LOGICAL_W = 528, LOGICAL_H = 528; // LOGICAL_H = total island height (grows northward)
+      /* SOUTH-WEST ANCHOR: the island's south shore (ly = SOUTH_EDGE)
+         and west shore (lx = 0) are the fixed anchor of the whole map.
+         The beach and its pier sit on the south shore, so they NEVER
+         move in world space; expansions grow the land east and north. */
+      var SOUTH_EDGE = 528; // logical y of the south shore — never changes
+      var NORTH_EDGE = 0;   // logical y of the north shore — decreases as land grows north
       var COLS = 6, ROWS = 5;
+      var BASE_ROWS = 5;    // rows in the original (southern) field block
       var PLOT = 72, GAP = 12;
       var FIELD_X = 18;
       var FIELD_Y = 118;
+      var FIELD_BOTTOM = FIELD_Y + BASE_ROWS * PLOT + (BASE_ROWS - 1) * GAP; // 526: field's south edge, fixed forever
+      var HOUSE_POS = { x: 52, y: 58 }; // the witch's cottage (logical)
       /* Farm expansion: buy whole BLOCKS （区画）, never single plots.
          Each purchase physically widens the floating island and adds a
          whole set of plots. Direction labels follow the compass above:
@@ -506,7 +526,7 @@
          north = screen upper-right (mountains). */
       var EXPANSIONS = [
         { name: "第1拡張・東の区画", dir: "東（画面右下）へ拡張", cols: 8, rows: 5, cost: 250, unlockLv: 3 },
-        { name: "第2拡張・南の海辺区画", dir: "南（画面左下・海側）へ拡張", cols: 8, rows: 7, cost: 700, unlockLv: 5 },
+        { name: "第2拡張・北の区画", dir: "北（画面右上）へ拡張", cols: 8, rows: 7, cost: 700, unlockLv: 5 },
         { name: "第3拡張・東の奥区画", dir: "東の奥（北東・山麓寄り）へ拡張", cols: 10, rows: 7, cost: 1600, unlockLv: 6 }
       ];
       var expansionStage = 0; // how many EXPANSIONS have been bought
@@ -714,8 +734,21 @@
 
       /* ---------- Field helpers ---------- */
       function plotRect(idx) {
-        var cx = idx % COLS, cy = Math.floor(idx / COLS);
-        return { x: FIELD_X + cx * (PLOT + GAP), y: FIELD_Y + cy * (PLOT + GAP), w: PLOT, h: PLOT };
+        var cx = idx % COLS, cy = Math.floor(idx / COLS); // cy counts rows from the SOUTH
+        var y;
+        if (cy < BASE_ROWS) {
+          // Original block: stacked up from the fixed south edge, so
+          // existing plots keep their logical (and world) position no
+          // matter how far the island later grows.
+          y = FIELD_BOTTOM - (cy + 1) * PLOT - cy * GAP;
+        } else {
+          // North block (added by the northward expansion): sits beyond
+          // the cottage / magic-circle strip (ly 0..FIELD_Y), so nothing
+          // that already exists has to move for it.
+          var bc = cy - BASE_ROWS;
+          y = -((bc + 1) * PLOT + bc * GAP);
+        }
+        return { x: FIELD_X + cx * (PLOT + GAP), y: y, w: PLOT, h: PLOT };
       }
       function plotIndexAt(lx, ly) {
         for (var i = 0; i < plots.length; i++) {
@@ -988,7 +1021,14 @@
         var oldPlots = plots;
         COLS = nx.cols; ROWS = nx.rows;
         LOGICAL_W = FIELD_X * 2 + COLS * PLOT + (COLS - 1) * GAP;
-        LOGICAL_H = Math.max(528, FIELD_Y + ROWS * PLOT + (ROWS - 1) * GAP + 14);
+        // Land grows NORTH and EAST only: the south-west anchor (south
+        // shore with the beach & pier, west shore) never moves. Added
+        // rows form a new block beyond the cottage strip to the north,
+        // which only pushes the island's north edge further north.
+        var extraRows = Math.max(0, ROWS - BASE_ROWS);
+        NORTH_EDGE = extraRows > 0 ? -(extraRows * PLOT + (extraRows - 1) * GAP) : 0;
+        LOGICAL_H = SOUTH_EDGE - NORTH_EDGE;
+        if (extraRows > 0) PLAYER_MIN_Y = NORTH_EDGE + 8; // the witch may walk into the north block
         // Rebuild plot grid, preserving every existing crop at its (cx, cy)
         var rebuilt = [];
         for (var ni = 0; ni < COLS * ROWS; ni++) rebuilt.push({ crop: null, t: 0, claim: null });
@@ -999,13 +1039,12 @@
           }
         }
         plots = rebuilt;
-        ROCK_SPOT.x = LOGICAL_W - 54;      // 岩場は常に北東（北の山の麓）
-        BEACH_SPOT.y = LOGICAL_H - 28;     // 浜辺は常に南端（南の海沿い）
+        ROCK_SPOT.x = LOGICAL_W - 54;      // 岩場は常に北東（北の山の麓）。浜辺・桟橋は南西アンカーで不動
         workers.forEach(function (w) { w.targetPlot = -1; w.mode = ""; w.wandering = false; });
         expansionStage += 1;
         if (typeof rebuildIslandAndPlots === "function") rebuildIslandAndPlots();
         var add = COLS * ROWS - oldCols * oldRows;
-        particles.push({ x: FIELD_X + (COLS * PLOT) / 2, y: FIELD_Y + (ROWS * PLOT) / 2, vy: -36, life: 1.6, text: "🎉 区画拡張！ +" + add + "畝", color: "#2f6e2c", size: 20 });
+        particles.push({ x: FIELD_X + (COLS * PLOT) / 2, y: FIELD_BOTTOM - (ROWS * PLOT) / 2, vy: -36, life: 1.6, text: "🎉 区画拡張！ +" + add + "畝", color: "#2f6e2c", size: 20 });
         toast("🗺️ ドカンと拡張！『" + nx.name + "』— 浮島が広がって畝が +" + add + "（全" + plots.length + "畝）になった！ ゴーレムも新しい区画で働くよ");
         refreshUI();
       }
@@ -1205,7 +1244,7 @@
               } else {
                 w.wandering = true;
                 w.wx = 40 + Math.random() * (LOGICAL_W - 80);
-                w.wy = GROUND_TOP + 24 + Math.random() * (LOGICAL_H - GROUND_TOP - 48);
+                w.wy = GROUND_TOP + 24 + Math.random() * (SOUTH_EDGE - GROUND_TOP - 48);
               }
             }
           }
@@ -1275,7 +1314,7 @@
           }
         }
         player.x = Math.max(16, Math.min(LOGICAL_W - 16, player.x));
-        player.y = Math.max(PLAYER_MIN_Y, Math.min(LOGICAL_H - 8, player.y));
+        player.y = Math.max(PLAYER_MIN_Y, Math.min(SOUTH_EDGE - 8, player.y));
 
         // Standing on the circle sheds a little magic dust now and then
         if (witchOnCircle() && Math.random() < dt * 2.2) {
@@ -1299,9 +1338,11 @@
       document.getElementById("startBtn").addEventListener("click", function () {
         started = true;
         document.getElementById("titleScreen").classList.add("hide");
+        document.getElementById("viewReset").style.display = "";
         toast("畝をクリックして、マンドラゴラの…まずはヨモギから育てよう");
         refreshUI();
       });
+      document.getElementById("viewReset").addEventListener("click", function () { resetView(); });
 
       /* ============================================================
          Three.js isometric diorama
@@ -1311,9 +1352,55 @@
       var fxCanvas = document.getElementById("fx");
       var fx = fxCanvas.getContext("2d");
       var SCALE = 0.02; // logical px -> world units
-      function wx(lx) { return (lx - LOGICAL_W / 2) * SCALE; }
-      function wz(ly) { return (ly - LOGICAL_H / 2) * SCALE; }
+      /* World mapping is anchored to the island's SOUTH-WEST corner:
+         the west shore (lx = 0) and the south shore (ly = SOUTH_EDGE)
+         have fixed world positions, so the beach and its pier NEVER
+         move on screen when the island expands. New land appears to
+         the east (+X) and north (−Z). At the base size this mapping is
+         identical to the old centre-based one. */
+      function wx(lx) { return lx * SCALE - 5.28; }
+      function wz(ly) { return (ly - SOUTH_EDGE) * SCALE + 5.28; }
+      function islandCenterWorld() {
+        return { x: wx(LOGICAL_W / 2), z: wz((NORTH_EDGE + SOUTH_EDGE) / 2) };
+      }
       function currentHalf() { return Math.max(8.9, Math.max(LOGICAL_W, LOGICAL_H) * SCALE / 2 + 2.6); }
+
+      /* ---------- Camera pan / zoom ----------
+         The camera looks at camTarget (world x/z) from a fixed iso
+         offset; camZoom scales the ortho frustum (1 = the classic
+         whole-island framing). At max expansion the island's projected
+         width outgrows that framing and the southern pier falls off
+         screen, so the player can drag to pan (clamped to the island),
+         wheel / pinch to zoom, and tap 全体表示 to refit everything. */
+      var camTarget = null; // THREE.Vector3, set in initThree
+      var camZoom = 1;
+      function fitHalfView() {
+        // Projected half-width of the island on screen: the iso view
+        // runs diagonally, so screen width spans (W + H) / √2.
+        return (LOGICAL_W + LOGICAL_H) * SCALE * 0.5 * Math.SQRT1_2 + 1.2;
+      }
+      function minCamZoom() { return currentHalf() / Math.max(currentHalf(), fitHalfView()); }
+      function viewHalf() { return currentHalf() / camZoom; }
+      function clampCamTarget() {
+        if (!camTarget) return;
+        var c = islandCenterWorld();
+        var hw = LOGICAL_W * SCALE / 2 + 2.2, hd = LOGICAL_H * SCALE / 2 + 2.2;
+        camTarget.x = Math.max(c.x - hw, Math.min(c.x + hw, camTarget.x));
+        camTarget.z = Math.max(c.z - hd, Math.min(c.z + hd, camTarget.z));
+        camTarget.y = 0;
+      }
+      function applyCamera() {
+        if (!camera || !camTarget) return;
+        camera.position.set(camTarget.x + 13, 13, camTarget.z + 13);
+        camera.lookAt(camTarget.x, -0.4, camTarget.z);
+      }
+      function resetView() {
+        if (!threeOK || !camera || !camTarget) return;
+        var c = islandCenterWorld();
+        camTarget.set(c.x, 0, c.z);
+        camZoom = minCamZoom(); // zoom out just enough that the WHOLE island fits
+        resize();
+      }
 
       var scene, camera, renderer, witchMesh, plotMeshes = [], workerGroup;
       var cloudGroups = [];
@@ -1572,9 +1659,10 @@
         grass.castShadow = false;
         islandGroup.add(grass);
         // Sandy shore along the SOUTH edge (logical bottom, sea side)
-        var shore = box(gw, 0.07, 42 * SCALE, dark ? 0x4a3d2c : 0xe6cf9e, 0, 0.03, wz(LOGICAL_H - 21));
+        var shore = box(gw, 0.07, 42 * SCALE, dark ? 0x4a3d2c : 0xe6cf9e, 0, 0.03, (SOUTH_EDGE - 21 - (NORTH_EDGE + SOUTH_EDGE) / 2) * SCALE);
         shore.castShadow = false;
         islandGroup.add(shore);
+        islandGroup.position.set(wx(LOGICAL_W / 2), 0, wz((NORTH_EDGE + SOUTH_EDGE) / 2));
         scene.add(islandGroup);
       }
       /* Scenery by compass: mountains to the NORTH (screen upper-right,
@@ -1613,8 +1701,9 @@
         layoutScenery();
       }
       function layoutScenery() {
-        if (mountainGroup) { var nd = (Math.max(LOGICAL_W, LOGICAL_H) * SCALE / 2) + 1.1; mountainGroup.position.set(-nd * 0.72, 0, -nd * 0.72); }
-        if (seaGroup) seaGroup.position.set(-LOGICAL_W * SCALE * 0.16, -1.55, (LOGICAL_H * SCALE / 2) + 8.6);
+        var icw = islandCenterWorld();
+        if (mountainGroup) { var nd = (Math.max(LOGICAL_W, LOGICAL_H) * SCALE / 2) + 1.1; mountainGroup.position.set(icw.x - nd * 0.72, 0, icw.z - nd * 0.72); }
+        if (seaGroup) seaGroup.position.set(icw.x - LOGICAL_W * SCALE * 0.16, -1.55, icw.z + (LOGICAL_H * SCALE / 2) + 8.6);
         if (rockGroup) rockGroup.position.set(wx(ROCK_SPOT.x), 0, wz(ROCK_SPOT.y));
         if (beachGroup) beachGroup.position.set(wx(BEACH_SPOT.x), 0, wz(BEACH_SPOT.y));
       }
@@ -1626,7 +1715,7 @@
          visibly "vanished" from beside the cottage for exactly this
          reason; re-lay these out on every rebuild. */
       function layoutProps() {
-        if (houseGroup) houseGroup.position.set(wx(52), 0, wz(58));
+        if (houseGroup) houseGroup.position.set(wx(HOUSE_POS.x), 0, wz(HOUSE_POS.y));
         if (magicGroup) magicGroup.position.set(wx(MAGIC.x), 0, wz(MAGIC.y));
         for (var ti = 0; ti < treeGroups.length; ti++) {
           treeGroups[ti].g.position.set(wx(treeGroups[ti].x), 0, wz(treeGroups[ti].y));
@@ -1748,6 +1837,9 @@
           sunLight.shadow.camera.updateProjectionMatrix();
         }
         resize();
+        // A bigger island can outgrow the old framing (the southern
+        // pier fell off screen): refit the whole island after expanding.
+        resetView();
       }
 
       function initThree() {
@@ -1755,8 +1847,10 @@
         var aspect = 1;
         var HALF = currentHalf();
         camera = new THREE.OrthographicCamera(-HALF * aspect, HALF * aspect, HALF, -HALF, 0.1, 100);
-        camera.position.set(13, 13, 13);
-        camera.lookAt(0, -0.4, 0);
+        var icw0 = islandCenterWorld();
+        camTarget = new THREE.Vector3(icw0.x, 0, icw0.z);
+        camZoom = 1;
+        applyCamera();
 
         renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
@@ -1789,7 +1883,7 @@
         roof.rotation.y = Math.PI / 4;
         house.add(roof);
         house.add(box(0.34, 0.55, 0.06, 0x7a4a21, 0, 0.28, 0.68));
-        house.position.set(wx(52), 0, wz(58));
+        house.position.set(wx(HOUSE_POS.x), 0, wz(HOUSE_POS.y));
         scene.add(house);
         // Magic circle on the ground beside the cottage — the only place
         // magic works. Glowing rings, a pentagram, and slowly turning runes.
@@ -1882,15 +1976,56 @@
         workerGroup = new THREE.Group();
         scene.add(workerGroup);
 
-        // Click / tap: raycast to plots & ground
+        // Tap vs. camera drag: a press that barely moves is a TAP (the
+        // witch walks & works, exactly as before); once it drags past a
+        // few px it becomes a camera PAN instead, so the two gestures
+        // never fight. Wheel zooms toward the cursor; two fingers
+        // pinch-zoom and pan together.
         var raycaster = new THREE.Raycaster();
         var pointer = new THREE.Vector2();
         var groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-        renderer.domElement.addEventListener("pointerdown", function (e) {
-          if (!started) return;
-          var rect = renderer.domElement.getBoundingClientRect();
-          pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-          pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        var cvs = renderer.domElement;
+        function groundPointAt(clientX, clientY) {
+          var rect = cvs.getBoundingClientRect();
+          pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+          pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+          raycaster.setFromCamera(pointer, camera);
+          var p = new THREE.Vector3();
+          return raycaster.ray.intersectPlane(groundPlane, p) ? p : null;
+        }
+        function setZoom(newZoom, clientX, clientY) {
+          var z = Math.max(minCamZoom(), Math.min(3, newZoom));
+          if (z === camZoom) return;
+          var before = (clientX !== undefined) ? groundPointAt(clientX, clientY) : null;
+          camZoom = z;
+          resize();
+          if (before) {
+            var after = groundPointAt(clientX, clientY);
+            if (after) {
+              camTarget.x += before.x - after.x;
+              camTarget.z += before.z - after.z;
+              clampCamTarget();
+              applyCamera();
+            }
+          }
+        }
+        function panByPixels(dx, dy) {
+          var rect = cvs.getBoundingClientRect();
+          var wpp = (2 * viewHalf()) / Math.max(1, rect.height);
+          var mx = dx * wpp, my = dy * wpp;
+          var SQ = Math.SQRT1_2;
+          // Grab-the-world: content follows the finger. Screen-right on
+          // the ground is (SQ, 0, -SQ); screen-up on the ground is
+          // (-SQ, 0, -SQ) for this iso camera.
+          camTarget.x += -SQ * (mx + my);
+          camTarget.z += SQ * (mx - my);
+          clampCamTarget();
+          applyCamera();
+        }
+        function handleTap(clientX, clientY) {
+          var rect = cvs.getBoundingClientRect();
+          pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+          pointer.y = -((clientY - rect.top) / rect.height) * 2 + 1;
           raycaster.setFromCamera(pointer, camera);
           // Magic circle first: clicking it walks the witch onto it
           if (magicHitMesh) {
@@ -1926,10 +2061,10 @@
           }
           var hitPoint = new THREE.Vector3();
           if (raycaster.ray.intersectPlane(groundPlane, hitPoint)) {
-            var lx = hitPoint.x / SCALE + LOGICAL_W / 2;
-            var ly = hitPoint.z / SCALE + LOGICAL_H / 2;
+            var lx = (hitPoint.x + 5.28) / SCALE;
+            var ly = (hitPoint.z - 5.28) / SCALE + SOUTH_EDGE;
             lx = Math.max(16, Math.min(LOGICAL_W - 16, lx));
-            ly = Math.max(PLAYER_MIN_Y, Math.min(LOGICAL_H - 8, ly));
+            ly = Math.max(PLAYER_MIN_Y, Math.min(SOUTH_EDGE - 8, ly));
             if (Math.hypot(lx - ROCK_SPOT.x, ly - ROCK_SPOT.y) <= 52) {
               player.target = { x: ROCK_SPOT.x, y: ROCK_SPOT.y, plot: -1, action: "rock" };
               toast("⛰️ 北の山の岩場へ向かうね（石・水晶が拾えるよ）");
@@ -1943,7 +2078,70 @@
               player.target = { x: lx, y: ly, plot: plotIndexAt(lx, ly) };
             }
           }
+        }
+        var activePointers = new Map();
+        var dragState = null;  // { id, startX, startY, lastX, lastY, panning }
+        var pinchState = null; // { dist, midX, midY }
+        cvs.addEventListener("pointerdown", function (e) {
+          if (!started) return;
+          try { cvs.setPointerCapture(e.pointerId); } catch (err) {}
+          activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+          if (activePointers.size === 2) {
+            var pts = Array.from(activePointers.values());
+            pinchState = {
+              dist: Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y),
+              midX: (pts[0].x + pts[1].x) / 2, midY: (pts[0].y + pts[1].y) / 2
+            };
+            dragState = null; // a second finger cancels any pending tap
+          } else if (activePointers.size === 1) {
+            dragState = { id: e.pointerId, startX: e.clientX, startY: e.clientY, lastX: e.clientX, lastY: e.clientY, panning: false };
+          }
         });
+        cvs.addEventListener("pointermove", function (e) {
+          if (!activePointers.has(e.pointerId)) return;
+          activePointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+          if (pinchState && activePointers.size === 2) {
+            var pts2 = Array.from(activePointers.values());
+            var nd = Math.hypot(pts2[0].x - pts2[1].x, pts2[0].y - pts2[1].y);
+            var nmx = (pts2[0].x + pts2[1].x) / 2, nmy = (pts2[0].y + pts2[1].y) / 2;
+            if (pinchState.dist > 0 && nd > 0) setZoom(camZoom * nd / pinchState.dist, nmx, nmy);
+            panByPixels(nmx - pinchState.midX, nmy - pinchState.midY);
+            pinchState = { dist: nd, midX: nmx, midY: nmy };
+            return;
+          }
+          if (dragState && dragState.id === e.pointerId) {
+            if (!dragState.panning &&
+                Math.hypot(e.clientX - dragState.startX, e.clientY - dragState.startY) > 7) {
+              dragState.panning = true;
+              cvs.style.cursor = "grabbing";
+            }
+            if (dragState.panning) panByPixels(e.clientX - dragState.lastX, e.clientY - dragState.lastY);
+            dragState.lastX = e.clientX; dragState.lastY = e.clientY;
+          }
+        });
+        function endPointer(e, cancelled) {
+          var wasDrag = dragState && dragState.id === e.pointerId;
+          var wasPanning = wasDrag && dragState.panning;
+          activePointers.delete(e.pointerId);
+          if (activePointers.size < 2) pinchState = null;
+          if (wasDrag) {
+            dragState = null;
+            cvs.style.cursor = "";
+            if (!cancelled && !wasPanning && started) handleTap(e.clientX, e.clientY);
+          }
+          // One finger left after a pinch: keep it as a pan (never a tap)
+          if (!cancelled && activePointers.size === 1 && !dragState) {
+            var rem = Array.from(activePointers.entries())[0];
+            dragState = { id: rem[0], startX: rem[1].x, startY: rem[1].y, lastX: rem[1].x, lastY: rem[1].y, panning: true };
+          }
+        }
+        cvs.addEventListener("pointerup", function (e) { endPointer(e, false); });
+        cvs.addEventListener("pointercancel", function (e) { endPointer(e, true); });
+        cvs.addEventListener("wheel", function (e) {
+          if (!started) return;
+          e.preventDefault();
+          setZoom(camZoom * (e.deltaY < 0 ? 1.13 : 1 / 1.13), e.clientX, e.clientY);
+        }, { passive: false });
 
         resize();
       }
@@ -1955,10 +2153,11 @@
         renderer.domElement.style.width = "100%";
         renderer.domElement.style.height = "100%";
         var aspect = w / h;
-        var HALF = currentHalf();
+        var HALF = viewHalf();
         camera.left = -HALF * aspect; camera.right = HALF * aspect;
         camera.top = HALF; camera.bottom = -HALF;
         camera.updateProjectionMatrix();
+        applyCamera();
         fxCanvas.width = w; fxCanvas.height = h;
       }
       window.addEventListener("resize", resize);

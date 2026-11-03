@@ -260,6 +260,27 @@
         .spell-btn { background: #6d46a0; border-color: #553684; box-shadow: 0 3px 0 #402763, var(--shadow); }
       }
       .spell-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #3d2560; }
+      .spell-btn.on-circle {
+        background: #7d4fc9;
+        border-color: #ffd94d;
+        box-shadow: 0 0 0 2px rgba(255, 217, 77, .65), 0 0 18px rgba(150, 90, 255, .75), 0 3px 0 #3d2560;
+        animation: spellPulse 1.2s ease-in-out infinite;
+      }
+      @keyframes spellPulse {
+        0%, 100% { filter: brightness(1); }
+        50% { filter: brightness(1.22); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .spell-btn.on-circle { animation: none; }
+      }
+      .circle-status {
+        font-size: 12px; font-weight: 700; text-align: center;
+        color: var(--ink-soft); margin: -4px 0 0; line-height: 1.5;
+      }
+      .circle-status strong { color: #7a4fc0; }
+      @media (prefers-color-scheme: dark) {
+        .circle-status strong { color: #c9a2ff; }
+      }
       .hirebar {
         display: flex; gap: 10px; align-items: center;
         background: var(--panel);
@@ -332,7 +353,7 @@
           <span class="splash-bubble mandra">ギャーッ!!</span>
           <div class="title-card">
             <h1>マンドラゴラ農園</h1>
-            <p class="sub">大鎌をかかえた魔女が営む小さな箱庭農園。<br>畝をクリックすると魔女が歩いて行って、種まき・収穫をします。<br>収穫でレベルアップすると種屋に新しい魔女植物が入荷。<br>最高レベルで解放される伝説のマンドラゴラを育てるのが夢。</p>
+            <p class="sub">大鎌をかかえた魔女が営む小さな箱庭農園。<br>畝をクリックすると魔女が歩いて行って、種まき・収穫をします。<br>魔法は小屋の隣の魔法陣の上でだけ。成長促進もゴーレム召喚もそこで行います。<br>収穫でレベルアップすると種屋に新しい魔女植物が入荷。<br>最高レベルで解放される伝説のマンドラゴラを育てるのが夢。</p>
             <p class="warn">※ マンドラゴラ収穫時の断末魔の叫びにご注意ください</p>
             <button id="startBtn" type="button">▶ 農園をはじめる</button>
           </div>
@@ -358,19 +379,21 @@
       <div class="shop-head">🛖 種屋<span>レベルが上がると新しい種が入荷します</span></div>
       <div class="seedbar" id="seedbar" role="group" aria-label="種の選択"></div>
 
-      <button class="spell-btn" id="spellBtn" type="button">🪄 成長促進魔法をかける（作物がぐんと育つ）</button>
+      <button class="spell-btn" id="spellBtn" type="button">🪄 成長促進魔法（魔法陣の上で発動）</button>
+      <p class="circle-status" id="circleStatus">🔮 魔法は<strong>小屋の隣の魔法陣</strong>の上でしか使えません。魔法陣か魔法ボタンを押すと、魔女が魔法陣まで歩いて行って発動します。</p>
 
       <div class="hirebar">
         <div class="hire-info">
           <span class="icons" id="golemIcons">🧙</span>
-          <span class="count" id="golemCount">作業ゴーレム 0体 — まだ魔女ひとりで作業中</span>
+          <span class="count" id="golemCount">召喚ゴーレム 0体 — まだ魔女ひとりで作業中</span>
         </div>
-        <button class="hire-btn" id="hireBtn" type="button">🗿 ゴーレムを雇う（60枚）</button>
+        <button class="hire-btn" id="hireBtn" type="button">🔮 ゴーレムを召喚（60枚）</button>
       </div>
 
       <p class="hint">
         畝（茶色いマス）をクリック／タップ → 魔女が歩いて行って、種まき・収穫をします。<br>
-        雇ったゴーレムは、選んでいる種を自動で植えて収穫してくれます。<br>
+        小屋の隣の<strong>魔法陣</strong>をクリックすると、魔女が魔法陣の上へ移動します。成長促進魔法もゴーレム召喚も、魔法は魔法陣の上でしか使えません。<br>
+        召喚したゴーレムは魔法陣に現れて、選んでいる種を自動で植えて収穫してくれます。<br>
         コインが尽きて種が買えなくなっても、種屋のおばあちゃんがヨモギの種を分けてくれるので大丈夫。
       </p>
     </div>
@@ -389,6 +412,11 @@
       var FIELD_X = (LOGICAL - (COLS * PLOT + (COLS - 1) * GAP)) / 2; // 18
       var FIELD_Y = 118;
       var GROUND_TOP = 96; // logical y where grass begins (for wander bounds)
+      /* Magic circle: drawn on the ground beside the cottage (house sits
+         at logical ~(52,58)). ALL magic — growth spell and golem summoning —
+         can only be cast while the witch stands on this circle. */
+      var MAGIC = { x: 152, y: 60, r: 38 };
+      var PLAYER_MIN_Y = 26; // the witch may walk up to the cottage / circle area
 
       /* ---------- Crops (tiers unlock by level; mandragora is the top tier) ---------- */
       var CROPS = [
@@ -435,6 +463,8 @@
       var toastEl = document.getElementById("toast");
       var seedbar = document.getElementById("seedbar");
       var hireBtn = document.getElementById("hireBtn");
+      var spellBtn = document.getElementById("spellBtn");
+      var circleStatusEl = document.getElementById("circleStatus");
       var rescueEl = document.getElementById("rescueBanner");
       var toastTimer = null;
 
@@ -552,6 +582,16 @@
         return idx >= 0 ? plots[idx] : null;
       }
 
+      /* ---------- Magic circle helpers ---------- */
+      function distToCircle(x, y) { return Math.hypot(x - MAGIC.x, y - MAGIC.y); }
+      function witchOnCircle() { return distToCircle(player.x, player.y) <= MAGIC.r; }
+      function pointOnCircle(lx, ly) { return distToCircle(lx, ly) <= MAGIC.r + 14; }
+      /* Send the witch walking to the circle; `action` ("spell" / "summon")
+         fires when she arrives. Plain moves pass no action. */
+      function sendWitchToCircle(action) {
+        player.target = { x: MAGIC.x, y: MAGIC.y, plot: -1, action: action || null };
+      }
+
       /* ---------- Seed shop UI ---------- */
       var seedBtns = [];
       CROPS.forEach(function (c, idx) {
@@ -620,19 +660,31 @@
             b.classList.toggle("cant", have === 0);
           }
         });
-        // Hire bar
+        // Summon bar (golems are summoned at the magic circle, not hired)
         var icons = "🧙";
         for (var gi = 0; gi < workers.length; gi++) icons += "🗿";
         document.getElementById("golemIcons").textContent = icons;
         document.getElementById("golemCount").textContent = workers.length === 0
-          ? "作業ゴーレム 0体 — まだ魔女ひとりで作業中"
-          : "作業ゴーレム " + workers.length + "体が自動で植え付け・収穫中";
+          ? "召喚ゴーレム 0体 — まだ魔女ひとりで作業中"
+          : "召喚ゴーレム " + workers.length + "体が自動で植え付け・収穫中";
         if (workers.length >= MAX_WORKERS) {
-          hireBtn.textContent = "🗿 満員（最大" + MAX_WORKERS + "体）";
+          hireBtn.textContent = "🔮 満員（最大" + MAX_WORKERS + "体）";
           hireBtn.classList.add("maxed");
         } else {
-          hireBtn.textContent = "🗿 ゴーレムを雇う（" + hireCost() + "枚）";
+          hireBtn.textContent = "🔮 ゴーレムを召喚（" + hireCost() + "枚）";
           hireBtn.classList.remove("maxed");
+        }
+        // Magic can only be cast on the circle: light the spell button up
+        // when the witch is standing on it, and say where she needs to go.
+        var onC = witchOnCircle();
+        spellBtn.classList.toggle("on-circle", onC);
+        spellBtn.textContent = onC
+          ? "🪄 成長促進魔法をかける！（魔法陣の上 — 作物がぐんと育つ）"
+          : "🪄 成長促進魔法（魔法陣へ歩いてから発動）";
+        if (circleStatusEl) {
+          circleStatusEl.innerHTML = onC
+            ? "🔮 <strong>魔法陣の上にいます！</strong> 成長促進魔法もゴーレム召喚も、今ならそのまま発動できます。"
+            : "🔮 魔法は<strong>小屋の隣の魔法陣</strong>の上でしか使えません。魔法陣か魔法ボタンを押すと、魔女が魔法陣まで歩いて行って発動します。";
         }
         // Rescue banner appears exactly when the run would otherwise be dead
         rescueEl.classList.toggle("show", isStuck());
@@ -743,8 +795,8 @@
           osc.start(start); osc.stop(start + 0.55);
         });
       }
-      document.getElementById("spellBtn").addEventListener("click", function () {
-        if (!started) return;
+      /* The growth spell itself — only ever called with the witch on the circle */
+      function castGrowthSpell() {
         spellCasts += 1;
         var grew = 0;
         plots.forEach(function (p, idx) {
@@ -757,11 +809,23 @@
             particles.push({ x: cx + 14, y: cy + 8, vy: -30, life: 0.8, text: "✦", color: "#b8860b", size: 15 });
           }
         });
+        // Sparkles burst from the magic circle as the spell fires
+        particles.push({ x: MAGIC.x - 18, y: MAGIC.y - 8, vy: -40, life: 1.0, text: "🔮", color: "#8a5fc0", size: 18 });
+        particles.push({ x: MAGIC.x + 18, y: MAGIC.y + 6, vy: -34, life: 0.9, text: "✨", color: "#8a5fc0", size: 16 });
         playChime();
         toast(grew > 0
           ? "🪄 成長促進魔法！ " + grew + "株がぐんぐん育った"
           : "🪄 成長促進魔法！ …でも今は育ててる作物がないみたい");
         refreshUI();
+      }
+      spellBtn.addEventListener("click", function () {
+        if (!started) return;
+        if (witchOnCircle()) {
+          castGrowthSpell();
+        } else {
+          sendWitchToCircle("spell");
+          toast("🔮 魔法は魔法陣の上でしか使えないよ。魔法陣へ向かうね…");
+        }
       });
 
       /* ---------- Hired golems (automation) ---------- */
@@ -770,22 +834,39 @@
       var WORKER_TINTS = [0x9a8f85, 0x7f8c99, 0xa39a7a, 0x8a97a5, 0x97877f, 0x7d8f7a];
       function hireCost() { return Math.round(60 * Math.pow(1.8, workers.length)); }
 
-      hireBtn.addEventListener("click", function () {
-        if (!started) return;
-        if (workers.length >= MAX_WORKERS) { toast("作業ゴーレムは最大 " + MAX_WORKERS + " 体までだよ"); return; }
+      /* Summoning is magic too: the golem rises out of the magic circle.
+         Only ever called with the witch standing on the circle. */
+      function summonGolem() {
+        if (workers.length >= MAX_WORKERS) { toast("召喚ゴーレムは最大 " + MAX_WORKERS + " 体までだよ"); return; }
         var cost = hireCost();
-        if (coins < cost) { toast("コインが足りない… あと " + (cost - coins) + " 枚で雇えるよ"); return; }
+        if (coins < cost) { toast("コインが足りない… あと " + (cost - coins) + " 枚で召喚できるよ"); return; }
         coins -= cost;
+        spellCasts += 1;
         workers.push({
-          x: 84 + Math.random() * 30, y: GROUND_TOP + 30 + Math.random() * 16,
+          x: MAGIC.x + (Math.random() * 16 - 8), y: MAGIC.y + (Math.random() * 12 - 6),
           targetPlot: -1, mode: "", cool: 0, think: Math.random() * 0.3,
           wx: 0, wy: 0, wandering: false,
-          face: 1, angle: 0, step: Math.random() * 6, moving: false,
+          face: 1, angle: Math.PI, step: Math.random() * 6, moving: false,
           tint: WORKER_TINTS[workers.length % WORKER_TINTS.length],
           mesh: null
         });
-        toast("🗿 ゴーレムを雇った！ " + workers.length + " 体目が自動で働きはじめた");
+        particles.push({ x: MAGIC.x, y: MAGIC.y - 14, vy: -38, life: 1.2, text: "🔮", color: "#8a5fc0", size: 19 });
+        particles.push({ x: MAGIC.x - 20, y: MAGIC.y + 4, vy: -30, life: 1.0, text: "✨", color: "#8a5fc0", size: 16 });
+        particles.push({ x: MAGIC.x + 20, y: MAGIC.y + 4, vy: -30, life: 1.0, text: "✨", color: "#b8860b", size: 16 });
+        playChime();
+        toast("🔮 魔法陣からゴーレムを召喚！ " + workers.length + " 体目が自動で働きはじめた");
         refreshUI();
+      }
+      hireBtn.addEventListener("click", function () {
+        if (!started) return;
+        if (workers.length >= MAX_WORKERS) { toast("召喚ゴーレムは最大 " + MAX_WORKERS + " 体までだよ"); return; }
+        if (coins < hireCost()) { toast("コインが足りない… あと " + (hireCost() - coins) + " 枚で召喚できるよ"); return; }
+        if (witchOnCircle()) {
+          summonGolem();
+        } else {
+          sendWitchToCircle("summon");
+          toast("🔮 召喚も魔法。魔法陣へ歩いて行ってから召喚するね…");
+        }
       });
 
       function releaseClaim(w) {
@@ -876,8 +957,13 @@
           var dist = Math.hypot(dx, dy);
           if (dist < 7) {
             var plotIdx = t.plot;
+            var arriveAction = t.action || null;
             player.target = null;
-            if (plotIdx >= 0) workPlot(plotIdx);
+            if (arriveAction === "spell") {
+              if (witchOnCircle()) castGrowthSpell();
+            } else if (arriveAction === "summon") {
+              if (witchOnCircle()) summonGolem();
+            } else if (plotIdx >= 0) workPlot(plotIdx);
           } else {
             player.x += (dx / dist) * player.speed * dt;
             player.y += (dy / dist) * player.speed * dt;
@@ -888,7 +974,17 @@
           }
         }
         player.x = Math.max(16, Math.min(LOGICAL - 16, player.x));
-        player.y = Math.max(GROUND_TOP + 10, Math.min(LOGICAL - 8, player.y));
+        player.y = Math.max(PLAYER_MIN_Y, Math.min(LOGICAL - 8, player.y));
+
+        // Standing on the circle sheds a little magic dust now and then
+        if (witchOnCircle() && Math.random() < dt * 2.2) {
+          var ea = Math.random() * Math.PI * 2;
+          particles.push({
+            x: MAGIC.x + Math.cos(ea) * MAGIC.r * 0.8,
+            y: MAGIC.y + Math.sin(ea) * MAGIC.r * 0.8,
+            vy: -26, life: 0.8, text: "✦", color: "#8a5fc0", size: 14
+          });
+        }
 
         updateWorkers(dt);
         plots.forEach(function (p) { if (p.crop) p.t += dt; });
@@ -919,6 +1015,8 @@
 
       var scene, camera, renderer, witchMesh, plotMeshes = [], workerGroup;
       var cloudGroups = [];
+      var magicGroup = null, magicSpin = null, magicHitMesh = null;
+      var magicDiscMat = null, magicRingMat = null;
       var threeOK = typeof THREE !== "undefined";
 
       function mat(color, opts) {
@@ -1201,6 +1299,59 @@
         house.add(box(0.34, 0.55, 0.06, 0x7a4a21, 0, 0.28, 0.68));
         house.position.set(wx(52), 0, wz(58));
         scene.add(house);
+        // Magic circle on the ground beside the cottage — the only place
+        // magic works. Glowing rings, a pentagram, and slowly turning runes.
+        (function buildMagicCircle() {
+          var R = MAGIC.r * SCALE; // ~0.76 world units
+          magicGroup = new THREE.Group();
+          var flat = function (mesh, y) {
+            mesh.rotation.x = -Math.PI / 2;
+            mesh.position.y = y;
+            return mesh;
+          };
+          // Soft glowing disc
+          magicDiscMat = new THREE.MeshBasicMaterial({ color: 0x9a5cff, transparent: true, opacity: 0.16, depthWrite: false });
+          magicGroup.add(flat(new THREE.Mesh(new THREE.CircleGeometry(R, 40), magicDiscMat), 0.015));
+          // Outer + inner rings
+          magicRingMat = new THREE.MeshBasicMaterial({ color: 0xc9a2ff, transparent: true, opacity: 0.85, side: THREE.DoubleSide, depthWrite: false });
+          magicGroup.add(flat(new THREE.Mesh(new THREE.RingGeometry(R - 0.055, R, 48), magicRingMat), 0.03));
+          magicGroup.add(flat(new THREE.Mesh(new THREE.RingGeometry(R * 0.60 - 0.03, R * 0.60, 40),
+            new THREE.MeshBasicMaterial({ color: 0xa678ff, transparent: true, opacity: 0.7, side: THREE.DoubleSide, depthWrite: false })), 0.03));
+          magicGroup.add(flat(new THREE.Mesh(new THREE.RingGeometry(0.13, 0.17, 24),
+            new THREE.MeshBasicMaterial({ color: 0xffd94d, transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthWrite: false })), 0.03));
+          // Pentagram (star polygon) drawn as glowing lines
+          var starPts = [];
+          for (var si = 0; si <= 5; si++) {
+            // {5/2} star polygon: step 2 vertices at a time, closing the loop
+            var idxA = (si * 2) % 5;
+            var ang = -Math.PI / 2 + idxA * (Math.PI * 2 / 5);
+            starPts.push(new THREE.Vector3(Math.cos(ang) * R * 0.86, 0, Math.sin(ang) * R * 0.86));
+          }
+          var starGeo = new THREE.BufferGeometry().setFromPoints(starPts);
+          var star = new THREE.Line(starGeo, new THREE.LineBasicMaterial({ color: 0xd9bcff, transparent: true, opacity: 0.9 }));
+          star.position.y = 0.035;
+          magicGroup.add(star);
+          // Rotating rune stones around the rim
+          magicSpin = new THREE.Group();
+          for (var ri = 0; ri < 8; ri++) {
+            var ra = (ri / 8) * Math.PI * 2;
+            var rune = box(0.10, 0.05, 0.06, ri % 2 ? 0x8a5fc0 : 0xd9a92c,
+              Math.cos(ra) * R * 0.78, 0.03, Math.sin(ra) * R * 0.78);
+            rune.castShadow = false;
+            rune.rotation.y = -ra;
+            magicSpin.add(rune);
+          }
+          magicGroup.add(magicSpin);
+          // Invisible click target (a bit larger than the drawing)
+          magicHitMesh = new THREE.Mesh(new THREE.CircleGeometry(R + 0.22, 24),
+            new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
+          magicHitMesh.rotation.x = -Math.PI / 2;
+          magicHitMesh.position.y = 0.05;
+          magicHitMesh.userData.magicCircle = true;
+          magicGroup.add(magicHitMesh);
+          magicGroup.position.set(wx(MAGIC.x), 0, wz(MAGIC.y));
+          scene.add(magicGroup);
+        })();
         // Trees
         [[108, 66], [452, 62], [492, 120]].forEach(function (tp) {
           var tree = new THREE.Group();
@@ -1278,6 +1429,15 @@
           pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
           pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
           raycaster.setFromCamera(pointer, camera);
+          // Magic circle first: clicking it walks the witch onto it
+          if (magicHitMesh) {
+            var mHits = raycaster.intersectObject(magicHitMesh, false);
+            if (mHits.length > 0) {
+              sendWitchToCircle(null);
+              toast("🔮 魔法陣へ移動。ここでなら魔法が使えるよ");
+              return;
+            }
+          }
           var soils = plotMeshes.map(function (pm) { return pm.soil; });
           var hits = raycaster.intersectObjects(soils, false);
           if (hits.length > 0) {
@@ -1291,8 +1451,13 @@
             var lx = hitPoint.x / SCALE + LOGICAL / 2;
             var ly = hitPoint.z / SCALE + LOGICAL / 2;
             lx = Math.max(16, Math.min(LOGICAL - 16, lx));
-            ly = Math.max(GROUND_TOP + 10, Math.min(LOGICAL - 8, ly));
-            player.target = { x: lx, y: ly, plot: plotIndexAt(lx, ly) };
+            ly = Math.max(PLAYER_MIN_Y, Math.min(LOGICAL - 8, ly));
+            if (pointOnCircle(lx, ly)) {
+              sendWitchToCircle(null);
+              toast("🔮 魔法陣へ移動。ここでなら魔法が使えるよ");
+            } else {
+              player.target = { x: lx, y: ly, plot: plotIndexAt(lx, ly) };
+            }
           }
         });
 
@@ -1380,6 +1545,17 @@
             armR.rotation.x = -sw;
           }
         });
+        // Magic circle: runes slowly turn; the glow breathes, and flares
+        // up while the witch stands on it (magic is usable only there)
+        if (magicGroup) {
+          if (magicSpin) magicSpin.rotation.y += dt * 0.45;
+          var onC2 = witchOnCircle();
+          var pulse = 0.5 + 0.5 * Math.sin(elapsed * (onC2 ? 5.2 : 2.2));
+          if (magicDiscMat) magicDiscMat.opacity = onC2 ? 0.26 + pulse * 0.16 : 0.12 + pulse * 0.07;
+          if (magicRingMat) magicRingMat.opacity = onC2 ? 0.95 : 0.68 + pulse * 0.2;
+          var ms2 = onC2 ? 1 + pulse * 0.045 : 1;
+          magicGroup.scale.set(ms2, 1, ms2);
+        }
         // Clouds drift
         cloudGroups.forEach(function (cl) {
           cl.position.x += cl.userData.speed * dt;

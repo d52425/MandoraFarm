@@ -305,6 +305,8 @@
       }
       .matbar .src { color: var(--ink-soft); font-size: 11px; }
       .matbar .m { background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 3px 9px; }
+      .gtimer { font-weight: 800; color: var(--ink-soft); margin-left: 5px; white-space: nowrap; }
+      .gtimer.ready { color: var(--accent-dark); }
       .circle-status strong { color: #7a4fc0; }
       @media (prefers-color-scheme: dark) {
         .circle-status strong { color: #c9a2ff; }
@@ -452,9 +454,9 @@
       <div class="matbar" id="matBar">
         <span>🧺 素材</span>
         <span class="m">🟤 土 <span id="matSoil">3</span><span class="src">（畑：収穫で入手）</span></span>
-        <span class="m">🪨 石 <span id="matStone">1</span><span class="src">（北の山：右上の岩場）</span></span>
+        <span class="m">🪨 石 <span id="matStone">1</span><span class="src">（北の山：右上の岩場）</span><span class="gtimer" id="rockTimer"></span></span>
         <span class="m">🔮 水晶 <span id="matCrystal">0</span><span class="src">（北の山：まれ）</span></span>
-        <span class="m">🐚 貝 <span id="matShell">1</span></span>
+        <span class="m">🐚 貝 <span id="matShell">1</span><span class="gtimer" id="beachTimer"></span></span>
         <span class="m">🪸 珊瑚 <span id="matCoral">0</span></span>
         <span class="m">🦪 真珠 <span id="matPearl">0</span></span>
         <span class="src">採取場所：土＝畑の収穫で入手／石・水晶＝北（右上）の岩場をクリック／貝・珊瑚・真珠＝南（左下）の浜辺をクリック（各20秒に1回）。素材でゴーレムの種類が変わります：土ゴーレム＝土×3・貝×1／石ゴーレム＝石×3・土×2・珊瑚×1／水晶ゴーレム＝水晶×2・真珠×1・石×1</span>
@@ -836,6 +838,18 @@
         // Materials inventory
         var matMap = { matSoil: materials.soil, matStone: materials.stone, matCrystal: materials.crystal, matShell: materials.shell, matCoral: materials.coral, matPearl: materials.pearl };
         for (var mid in matMap) { var mel = document.getElementById(mid); if (mel) mel.textContent = matMap[mid]; }
+        // Gathering cooldowns: show the remaining seconds next to each
+        // spot's materials, flipping to a green "採取OK" when ready
+        var rtEl = document.getElementById("rockTimer");
+        if (rtEl) {
+          rtEl.textContent = rockCool > 0 ? "⏳あと" + Math.ceil(rockCool) + "秒" : "✅採取OK";
+          rtEl.classList.toggle("ready", rockCool <= 0);
+        }
+        var btEl = document.getElementById("beachTimer");
+        if (btEl) {
+          btEl.textContent = beachCool > 0 ? "⏳あと" + Math.ceil(beachCool) + "秒" : "✅採取OK";
+          btEl.classList.toggle("ready", beachCool <= 0);
+        }
         // Magic can only be cast on the circle: light the spell button up
         // when the witch is standing on it, and say where she needs to go.
         var onC = witchOnCircle();
@@ -2056,6 +2070,46 @@
           fx.fillText(pt.text, sx, sy);
           fx.globalAlpha = 1;
         });
+        // Gathering-spot timer labels: a pill floating above each spot
+        // showing the cooldown countdown, flipping to "採取OK" when ready.
+        // Positions come from the live spot coords, so they keep tracking
+        // the rock pile / beach even after an island expansion moves them.
+        function spotLabel(lx, ly, icon, name, cool) {
+          projV.set(wx(lx), 1.55, wz(ly));
+          projV.project(camera);
+          if (projV.z > 1) return;
+          var sx2 = (projV.x * 0.5 + 0.5) * w;
+          var sy2 = (-projV.y * 0.5 + 0.5) * h;
+          var ready = cool <= 0;
+          var label = icon + " " + name + " " + (ready ? "採取OK！" : "あと " + Math.ceil(cool) + " 秒");
+          fx.font = "bold 13px sans-serif";
+          var tw = fx.measureText(label).width;
+          var pw = tw + 20, ph = 24;
+          var px2 = sx2 - pw / 2, py2 = sy2 - ph / 2;
+          fx.beginPath();
+          if (fx.roundRect) fx.roundRect(px2, py2, pw, ph, 12);
+          else fx.rect(px2, py2, pw, ph);
+          fx.fillStyle = ready ? "rgba(47, 110, 44, .92)" : "rgba(20, 30, 16, .78)";
+          fx.fill();
+          fx.lineWidth = 1.5;
+          fx.strokeStyle = ready ? "rgba(255, 217, 77, .9)" : "rgba(255, 255, 255, .55)";
+          fx.stroke();
+          fx.fillStyle = "#fff";
+          fx.textAlign = "center";
+          fx.fillText(label, sx2, sy2 + 4.5);
+          // little pointer triangle down toward the spot itself
+          fx.beginPath();
+          fx.moveTo(sx2 - 6, py2 + ph - 1);
+          fx.lineTo(sx2 + 6, py2 + ph - 1);
+          fx.lineTo(sx2, py2 + ph + 7);
+          fx.closePath();
+          fx.fillStyle = ready ? "rgba(47, 110, 44, .92)" : "rgba(20, 30, 16, .78)";
+          fx.fill();
+        }
+        if (started) {
+          spotLabel(ROCK_SPOT.x, ROCK_SPOT.y, "⛰️", "山の幸", rockCool);
+          spotLabel(BEACH_SPOT.x, BEACH_SPOT.y, "🌊", "海の幸", beachCool);
+        }
         fx.textAlign = "left";
       }
 

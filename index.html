@@ -277,6 +277,19 @@
         font-size: 12px; font-weight: 700; text-align: center;
         color: var(--ink-soft); margin: -4px 0 0; line-height: 1.5;
       }
+      .compass {
+        position: absolute; top: 10px; left: 10px; z-index: 4;
+        background: rgba(20,30,16,.78); color: #fff;
+        font-size: 11px; font-weight: 700; line-height: 1.5;
+        padding: 6px 10px; border-radius: 10px; pointer-events: none;
+      }
+      .matbar {
+        display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+        background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+        box-shadow: var(--shadow); padding: 7px 10px; font-size: 12px; font-weight: 700;
+      }
+      .matbar .src { color: var(--ink-soft); font-size: 11px; }
+      .matbar .m { background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 3px 9px; }
       .circle-status strong { color: #7a4fc0; }
       @media (prefers-color-scheme: dark) {
         .circle-status strong { color: #c9a2ff; }
@@ -300,6 +313,31 @@
       }
       .hire-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #4d5763; }
       .hire-btn.maxed { background: var(--line); color: var(--ink-soft); box-shadow: none; }
+      /* ---------- Farm expansion (区画拡張) ---------- */
+      .expandbar {
+        display: flex; gap: 10px; align-items: center;
+        background: linear-gradient(135deg, #fff8e1, var(--panel));
+        border: 2px solid #c9a227;
+        border-radius: 14px;
+        box-shadow: var(--shadow);
+        padding: 10px 12px;
+      }
+      @media (prefers-color-scheme: dark) {
+        .expandbar { background: linear-gradient(135deg, #35301a, var(--panel)); border-color: #8a6d1f; }
+      }
+      .expand-info { flex: 1; min-width: 0; }
+      .expand-info .ttl { font-size: 14px; font-weight: 800; display: block; }
+      .expand-info .desc { font-size: 12px; font-weight: 600; color: var(--ink-soft); display: block; margin-top: 2px; line-height: 1.55; }
+      .expand-info .desc b { color: var(--coin); }
+      .expand-btn {
+        flex: none;
+        background: #8a6844; color: #fff; border: 0; border-radius: 12px;
+        padding: 11px 13px; font-size: 13px; font-weight: 800; cursor: pointer; font-family: inherit;
+        box-shadow: 0 3px 0 #5d452a; line-height: 1.35; text-align: center;
+      }
+      .expand-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #5d452a; }
+      .expand-btn.locked { background: #9a958c; box-shadow: 0 3px 0 #6e6a63; }
+      .expand-btn.maxed { background: var(--line); color: var(--ink-soft); box-shadow: none; }
       /* ---------- Rescue (詰み救済) ---------- */
       .rescue {
         display: none;
@@ -358,6 +396,7 @@
             <button id="startBtn" type="button">▶ 農園をはじめる</button>
           </div>
         </div>
+        <div class="compass">🧭 北＝右上 ⛰️山（石・水晶）<br>南＝左下 🌊海（貝・珊瑚・真珠）</div>
         <div class="toast" id="toast"></div>
         <div class="goal-banner" id="goalBanner">
           <div class="goal-card">
@@ -382,18 +421,42 @@
       <button class="spell-btn" id="spellBtn" type="button">🪄 成長促進魔法（魔法陣の上で発動）</button>
       <p class="circle-status" id="circleStatus">🔮 魔法は<strong>小屋の隣の魔法陣</strong>の上でしか使えません。魔法陣か魔法ボタンを押すと、魔女が魔法陣まで歩いて行って発動します。</p>
 
-      <div class="hirebar">
-        <div class="hire-info">
+      <div class="hirebar" style="flex-wrap:wrap;">
+        <div class="hire-info" style="flex:1 1 100%;">
           <span class="icons" id="golemIcons">🧙</span>
           <span class="count" id="golemCount">召喚ゴーレム 0体 — まだ魔女ひとりで作業中</span>
         </div>
-        <button class="hire-btn" id="hireBtn" type="button">🔮 ゴーレムを召喚（60枚）</button>
+        <button class="hire-btn" id="summonSoil" type="button" style="flex:1;">🟤 土ゴーレム召喚</button>
+        <button class="hire-btn" id="summonStone" type="button" style="flex:1;">🪨 石ゴーレム召喚</button>
+        <button class="hire-btn" id="summonCrystal" type="button" style="flex:1;">🔮 水晶ゴーレム召喚</button>
+      </div>
+
+      <div class="matbar" id="matBar">
+        <span>🧺 素材</span>
+        <span class="m">🟤 土 <span id="matSoil">3</span><span class="src">（畑：収穫で入手）</span></span>
+        <span class="m">🪨 石 <span id="matStone">1</span><span class="src">（北の山：右上の岩場）</span></span>
+        <span class="m">🔮 水晶 <span id="matCrystal">0</span><span class="src">（北の山：まれ）</span></span>
+        <span class="m">🐚 貝 <span id="matShell">1</span></span>
+        <span class="m">🪸 珊瑚 <span id="matCoral">0</span></span>
+        <span class="m">🦪 真珠 <span id="matPearl">0</span></span>
+        <span class="src">採取場所：土＝畑の収穫で入手／石・水晶＝北（右上）の岩場をクリック／貝・珊瑚・真珠＝南（左下）の浜辺をクリック（各20秒に1回）。素材でゴーレムの種類が変わります：土ゴーレム＝土×3・貝×1／石ゴーレム＝石×3・土×2・珊瑚×1／水晶ゴーレム＝水晶×2・真珠×1・石×1</span>
+      </div>
+
+      <div class="expandbar" id="expandBar">
+        <div class="expand-info">
+          <span class="ttl">🗺️ 畑の拡張 — 区画ごとドカンと広げる！</span>
+          <span class="desc" id="expandDesc">現在の畑：30畝（6×5）／ 次は第1拡張</span>
+        </div>
+        <button class="expand-btn" id="expandBtn" type="button">第1拡張を買う</button>
       </div>
 
       <p class="hint">
         畝（茶色いマス）をクリック／タップ → 魔女が歩いて行って、種まき・収穫をします。<br>
         小屋の隣の<strong>魔法陣</strong>をクリックすると、魔女が魔法陣の上へ移動します。成長促進魔法もゴーレム召喚も、魔法は魔法陣の上でしか使えません。<br>
-        召喚したゴーレムは魔法陣に現れて、選んでいる種を自動で植えて収穫してくれます。<br>
+        召喚したゴーレムは魔法陣に現れて、選んでいる種を自動で植えて収穫してくれます。拡張した区画の畝でも同じように働きます。<br>
+        <strong>ゴーレムは素材で種類が変わり、寿命制です</strong>：土ゴーレム（土×3・貝×1／120秒・20回）、石ゴーレム（石×3・土×2・珊瑚×1／190秒・32回）、水晶ゴーレム（水晶×2・真珠×1・石×1／260秒・45回）。時間か作業回数が尽きると土に還るので、素材を集めて再召喚してください。<br>
+        <strong>素材の採取場所</strong>：土＝作物を収穫すると+1／石・水晶＝<strong>北（画面右上）の山の岩場</strong>をクリック／貝・珊瑚・真珠＝<strong>南（画面左下）の海の浜辺</strong>をクリック。マップの方位は右上が北（山）、左下が南（海）です。<br>
+        <strong>畑の拡張</strong>は1畝ずつではなく<strong>区画ごとドカン</strong>と買います。買うと浮島マップ自体が物理的に広がって新しい畝が増えます（第1拡張 250枚・Lv.3／第2拡張 700枚・Lv.5／第3拡張 1,600枚・Lv.6）。<br>
         コインが尽きて種が買えなくなっても、種屋のおばあちゃんがヨモギの種を分けてくれるので大丈夫。
       </p>
     </div>
@@ -403,14 +466,35 @@
     (function () {
       "use strict";
       /* ============================================================
-         Game logic lives on a 2D logical grid (528 x 528).
+         Game logic lives on a 2D logical grid.
          Rendering is a Three.js isometric diorama mapped from it.
+         方位：画面右上方向が北（山）、画面左下方向が南（海）。
+         論理座標では上が北（ly小＝北／-Z＝画面右上）、下が南
+         （ly大＝南／+Z＝画面左下）、右が東（lx大＝+X＝画面右下）。
+         拡張区画の配置もこの方位を基準にする。
          ============================================================ */
-      var LOGICAL = 528;
+      var LOGICAL = 528; // base size; kept for legacy references
+      var LOGICAL_W = 528, LOGICAL_H = 528; // grows as the island expands
       var COLS = 6, ROWS = 5;
       var PLOT = 72, GAP = 12;
-      var FIELD_X = (LOGICAL - (COLS * PLOT + (COLS - 1) * GAP)) / 2; // 18
+      var FIELD_X = 18;
       var FIELD_Y = 118;
+      /* Farm expansion: buy whole BLOCKS （区画）, never single plots.
+         Each purchase physically widens the floating island and adds a
+         whole set of plots. Direction labels follow the compass above:
+         east = screen lower-right, south = screen lower-left (seaside),
+         north = screen upper-right (mountains). */
+      var EXPANSIONS = [
+        { name: "第1拡張・東の区画", dir: "東（画面右下）へ拡張", cols: 8, rows: 5, cost: 250, unlockLv: 3 },
+        { name: "第2拡張・南の海辺区画", dir: "南（画面左下・海側）へ拡張", cols: 8, rows: 7, cost: 700, unlockLv: 5 },
+        { name: "第3拡張・東の奥区画", dir: "東の奥（北東・山麓寄り）へ拡張", cols: 10, rows: 7, cost: 1600, unlockLv: 6 }
+      ];
+      var expansionStage = 0; // how many EXPANSIONS have been bought
+      function nextExpansion() { return expansionStage < EXPANSIONS.length ? EXPANSIONS[expansionStage] : null; }
+      function expansionAddPlots(exp) {
+        var cur = COLS * ROWS;
+        return exp.cols * exp.rows - cur;
+      }
       var GROUND_TOP = 96; // logical y where grass begins (for wander bounds)
       /* Magic circle: drawn on the ground beside the cottage (house sits
          at logical ~(52,58)). ALL magic — growth spell and golem summoning —
@@ -445,6 +529,43 @@
       var plots = [];
       for (var i = 0; i < COLS * ROWS; i++) plots.push({ crop: null, t: 0, claim: null });
       var particles = [];
+      /* ---------- Materials & golem lifespan ----------
+         素材の集め先は方位で分かれる：畑＝土、北の山（画面右上）＝石・水晶、
+         南の海（画面左下）＝海の幸（貝・珊瑚・真珠）。
+         ゴーレムは永続ではなく寿命制：一定時間＋作業回数で役目を終える。 */
+      var materials = { soil: 3, stone: 1, crystal: 0, shell: 1, coral: 0, pearl: 0 };
+      function seaGoodsCount() { return materials.shell + materials.coral + materials.pearl; }
+      /* Golem types are decided by their materials:
+         土ゴーレム（畑の土＋貝）／石ゴーレム（北の山の石＋珊瑚）／水晶ゴーレム（北の山の水晶＋真珠）。
+         Each has its own speed and lifespan; none is permanent. */
+      var MAT_NAMES = { soil: "土", stone: "石", crystal: "水晶", shell: "貝", coral: "珊瑚", pearl: "真珠" };
+      var GOLEM_TYPES = [
+        { id: "soil",    name: "土ゴーレム",   face: "🟤", coins: 60,  speed: 102, lifeSec: 120, lifeJobs: 20, tint: 0xa08256, recipe: { soil: 3, shell: 1 }, desc: "入門用。遅いけど十分働く" },
+        { id: "stone",   name: "石ゴーレム",   face: "🪨", coins: 150, speed: 132, lifeSec: 190, lifeJobs: 32, tint: 0x8b959e, recipe: { stone: 3, soil: 2, coral: 1 }, desc: "頑丈で長持ち。バランス型" },
+        { id: "crystal", name: "水晶ゴーレム", face: "🔮", coins: 320, speed: 178, lifeSec: 260, lifeJobs: 45, tint: 0xb18cff, recipe: { crystal: 2, pearl: 1, stone: 1 }, desc: "最速・最長寿命の上位種" }
+      ];
+      var pendingGolemType = GOLEM_TYPES[0];
+      function golemTypeById(id) { for (var gi2 = 0; gi2 < GOLEM_TYPES.length; gi2++) if (GOLEM_TYPES[gi2].id === id) return GOLEM_TYPES[gi2]; return GOLEM_TYPES[0]; }
+      function golemCoinCost(type) { return type.coins + workers.length * 30; }
+      function recipeText(type) {
+        var parts = [];
+        for (var mk in type.recipe) parts.push(MAT_NAMES[mk] + "×" + type.recipe[mk] + "（" + materials[mk] + "）");
+        return parts.join("・");
+      }
+      function canAffordType(type) {
+        if (coins < golemCoinCost(type)) return false;
+        for (var mk2 in type.recipe) if (materials[mk2] < type.recipe[mk2]) return false;
+        return true;
+      }
+      function missingText(type) {
+        var miss = [];
+        if (coins < golemCoinCost(type)) miss.push("コインあと" + (golemCoinCost(type) - coins) + "枚");
+        for (var mk3 in type.recipe) if (materials[mk3] < type.recipe[mk3]) miss.push(MAT_NAMES[mk3] + "あと" + (type.recipe[mk3] - materials[mk3]));
+        return miss.join("、");
+      }
+      var ROCK_SPOT = { x: 474, y: 52 };   // 北の山の岩場 (north, screen upper-right)
+      var BEACH_SPOT = { x: 56, y: 500 };  // 南の海の浜辺 (south, screen lower-left)
+      var rockCool = 0, beachCool = 0;     // gathering cooldowns (seconds)
 
       var player = {
         x: FIELD_X + 2 * (PLOT + GAP) + PLOT / 2,
@@ -462,10 +583,16 @@
       var dayLabel = document.getElementById("dayLabel");
       var toastEl = document.getElementById("toast");
       var seedbar = document.getElementById("seedbar");
-      var hireBtn = document.getElementById("hireBtn");
+      var summonBtns = {
+        soil: document.getElementById("summonSoil"),
+        stone: document.getElementById("summonStone"),
+        crystal: document.getElementById("summonCrystal")
+      };
       var spellBtn = document.getElementById("spellBtn");
       var circleStatusEl = document.getElementById("circleStatus");
       var rescueEl = document.getElementById("rescueBanner");
+      var expandBtn = document.getElementById("expandBtn");
+      var expandDesc = document.getElementById("expandDesc");
       var toastTimer = null;
 
       function toast(msg) {
@@ -665,15 +792,22 @@
         for (var gi = 0; gi < workers.length; gi++) icons += "🗿";
         document.getElementById("golemIcons").textContent = icons;
         document.getElementById("golemCount").textContent = workers.length === 0
-          ? "召喚ゴーレム 0体 — まだ魔女ひとりで作業中"
-          : "召喚ゴーレム " + workers.length + "体が自動で植え付け・収穫中";
-        if (workers.length >= MAX_WORKERS) {
-          hireBtn.textContent = "🔮 満員（最大" + MAX_WORKERS + "体）";
-          hireBtn.classList.add("maxed");
-        } else {
-          hireBtn.textContent = "🔮 ゴーレムを召喚（" + hireCost() + "枚）";
-          hireBtn.classList.remove("maxed");
-        }
+          ? "召喚ゴーレム 0体 — まだ魔女ひとりで作業中。ゴーレムは素材で種類が変わり、寿命（時間／作業回数）が来たら土に還ります"
+          : "召喚ゴーレム " + workers.length + "体が全区画で作業中：" + workers.map(function (w) { return w.typeName + " ⏳" + Math.max(0, Math.ceil(w.life)) + "秒・作業" + w.jobs + "/" + w.lifeJobs + "回"; }).join(" ／ ");
+        GOLEM_TYPES.forEach(function (gt) {
+          var gb = summonBtns[gt.id];
+          if (!gb) return;
+          if (workers.length >= MAX_WORKERS) {
+            gb.textContent = "🔮 満員（最大" + MAX_WORKERS + "体）";
+            gb.classList.add("maxed");
+          } else {
+            gb.innerHTML = gt.face + " " + gt.name + "（" + golemCoinCost(gt) + "枚）<br><small>" + recipeText(gt) + "／寿命" + gt.lifeSec + "秒・" + gt.lifeJobs + "回</small>";
+            gb.classList.remove("maxed");
+          }
+        });
+        // Materials inventory
+        var matMap = { matSoil: materials.soil, matStone: materials.stone, matCrystal: materials.crystal, matShell: materials.shell, matCoral: materials.coral, matPearl: materials.pearl };
+        for (var mid in matMap) { var mel = document.getElementById(mid); if (mel) mel.textContent = matMap[mid]; }
         // Magic can only be cast on the circle: light the spell button up
         // when the witch is standing on it, and say where she needs to go.
         var onC = witchOnCircle();
@@ -685,6 +819,30 @@
           circleStatusEl.innerHTML = onC
             ? "🔮 <strong>魔法陣の上にいます！</strong> 成長促進魔法もゴーレム召喚も、今ならそのまま発動できます。"
             : "🔮 魔法は<strong>小屋の隣の魔法陣</strong>の上でしか使えません。魔法陣か魔法ボタンを押すと、魔女が魔法陣まで歩いて行って発動します。";
+        }
+        // Farm expansion UI: always show the next block, its price,
+        // level requirement and how many plots it adds
+        if (expandBtn && expandDesc) {
+          var nx = nextExpansion();
+          if (!nx) {
+            expandDesc.innerHTML = "現在の畑：<b>" + plots.length + "畝</b>（" + COLS + "×" + ROWS + "）— 全" + EXPANSIONS.length + "区画を拡張済み！ 浮島は最大まで広がりました 🎉 🧭 北（右上）は山、南（左下）は海";
+            expandBtn.textContent = "🏝️ 完全拡張！";
+            expandBtn.classList.add("maxed");
+            expandBtn.classList.remove("locked");
+          } else {
+            var add = expansionAddPlots(nx);
+            var lvOk = level >= nx.unlockLv;
+            var coinOk = coins >= nx.cost;
+            expandDesc.innerHTML =
+              "現在の畑：<b>" + plots.length + "畝</b>（" + COLS + "×" + ROWS + "）／ 次は <b>" + nx.name + "</b>：" + nx.dir + "、畝が <b>+" + add + "畝</b>（→" + (nx.cols * nx.rows) + "畝）<br>" +
+              "価格 <b>" + nx.cost + "枚</b> ・ 必要Lv.<b>" + nx.unlockLv + "</b>" +
+              (lvOk ? "" : "（あと " + (nx.unlockLv - level) + " レベル）") +
+              (coinOk ? "" : "（コインあと " + (nx.cost - coins) + " 枚）") +
+              " ／ 🧭 北（右上）は山、南（左下）は海";
+            expandBtn.innerHTML = "🗺️ " + nx.name + "<br>" + nx.cost + "枚で拡張（+" + add + "畝）";
+            expandBtn.classList.toggle("locked", !(lvOk && coinOk));
+            expandBtn.classList.remove("maxed");
+          }
         }
         // Rescue banner appears exactly when the run would otherwise be dead
         rescueEl.classList.toggle("show", isStuck());
@@ -706,6 +864,8 @@
         } else if (byPlayer) {
           toast(crop.face + " " + crop.name + "を収穫！ +" + crop.sell + " コイン / XP+" + crop.xp);
         }
+        materials.soil += 1; // 畑の恵み：収穫のたびに土が1つ手に入る（ゴーレムの素材）
+        particles.push({ x: cx - 22, y: cy + 30, vy: -24, life: 1.0, text: "🟤土+1", color: "#7a5327", size: 13 });
         particles.push({ x: cx, y: cy, vy: -30, life: 1.1, text: "+" + crop.sell + " 🪙", color: "#b8860b", size: 16 });
         particles.push({ x: cx, y: cy + 18, vy: -26, life: 1.1, text: "XP +" + crop.xp, color: "#2b6cb0", size: 14 });
         p.crop = null; p.t = 0; p.claim = null;
@@ -775,6 +935,71 @@
         document.getElementById("goalBanner").classList.remove("show");
       });
 
+      /* ---------- Farm expansion purchase （区画ごとドカンと拡張） ---------- */
+      function buyExpansion() {
+        var nx = nextExpansion();
+        if (!nx) { toast("🏝️ もう全区画を拡張済みだよ！"); return; }
+        if (level < nx.unlockLv) { toast("🔒 『" + nx.name + "』は Lv." + nx.unlockLv + " で解放（あと " + (nx.unlockLv - level) + " レベル）"); return; }
+        if (coins < nx.cost) { toast("コインが足りない… 『" + nx.name + "』にはあと " + (nx.cost - coins) + " 枚必要だよ"); return; }
+        coins -= nx.cost;
+        var oldCols = COLS, oldRows = ROWS;
+        var oldPlots = plots;
+        COLS = nx.cols; ROWS = nx.rows;
+        LOGICAL_W = FIELD_X * 2 + COLS * PLOT + (COLS - 1) * GAP;
+        LOGICAL_H = Math.max(528, FIELD_Y + ROWS * PLOT + (ROWS - 1) * GAP + 14);
+        // Rebuild plot grid, preserving every existing crop at its (cx, cy)
+        var rebuilt = [];
+        for (var ni = 0; ni < COLS * ROWS; ni++) rebuilt.push({ crop: null, t: 0, claim: null });
+        for (var oy = 0; oy < oldRows; oy++) {
+          for (var ox = 0; ox < oldCols; ox++) {
+            var op = oldPlots[oy * oldCols + ox];
+            if (op) { op.claim = null; rebuilt[oy * COLS + ox] = op; }
+          }
+        }
+        plots = rebuilt;
+        ROCK_SPOT.x = LOGICAL_W - 54;      // 岩場は常に北東（北の山の麓）
+        BEACH_SPOT.y = LOGICAL_H - 28;     // 浜辺は常に南端（南の海沿い）
+        workers.forEach(function (w) { w.targetPlot = -1; w.mode = ""; w.wandering = false; });
+        expansionStage += 1;
+        if (typeof rebuildIslandAndPlots === "function") rebuildIslandAndPlots();
+        var add = COLS * ROWS - oldCols * oldRows;
+        particles.push({ x: FIELD_X + (COLS * PLOT) / 2, y: FIELD_Y + (ROWS * PLOT) / 2, vy: -36, life: 1.6, text: "🎉 区画拡張！ +" + add + "畝", color: "#2f6e2c", size: 20 });
+        toast("🗺️ ドカンと拡張！『" + nx.name + "』— 浮島が広がって畝が +" + add + "（全" + plots.length + "畝）になった！ ゴーレムも新しい区画で働くよ");
+        refreshUI();
+      }
+      if (expandBtn) expandBtn.addEventListener("click", function () { if (!started) return; buyExpansion(); });
+
+      /* ---------- Gathering spots (方位で集め先が違う) ---------- */
+      function gatherRock() { // 北の山の岩場：石、まれに水晶
+        if (rockCool > 0) { toast("🪨 岩場は探し直し中… あと " + Math.ceil(rockCool) + " 秒でまた拾えるよ"); return; }
+        rockCool = 20;
+        materials.stone += 1;
+        var bonus = "";
+        if (Math.random() < 0.30) { materials.crystal += 1; bonus = " 🔮水晶も見つけた！"; }
+        particles.push({ x: ROCK_SPOT.x, y: ROCK_SPOT.y - 16, vy: -34, life: 1.1, text: "🪨石+1", color: "#5d666e", size: 16 });
+        toast("⛰️ 北の山の岩場で 石+1！" + bonus);
+        refreshUI();
+      }
+      function gatherBeach() { // 南の海の浜辺：海の幸（貝・珊瑚・真珠）
+        if (beachCool > 0) { toast("🌊 波が次の贈り物を運び中… あと " + Math.ceil(beachCool) + " 秒でまた拾えるよ"); return; }
+        beachCool = 20;
+        var roll = Math.random();
+        var got;
+        if (roll < 0.60) { materials.shell += 1; got = "🐚 貝+1"; }
+        else if (roll < 0.85) { materials.coral += 1; got = "🪸 珊瑚+1"; }
+        else { materials.pearl += 1; got = "🦪 真珠+1"; }
+        particles.push({ x: BEACH_SPOT.x, y: BEACH_SPOT.y - 16, vy: -34, life: 1.1, text: got, color: "#2b6cb0", size: 16 });
+        toast("🌊 南の浜辺で " + got + "！（海の幸はゴーレム召喚の材料）");
+        refreshUI();
+      }
+      function consumeSeaGood() {
+        if (materials.shell > 0) { materials.shell -= 1; return true; }
+        if (materials.coral > 0) { materials.coral -= 1; return true; }
+        if (materials.pearl > 0) { materials.pearl -= 1; return true; }
+        return false;
+      }
+      /* (per-type recipe helpers live with GOLEM_TYPES above) */
+
       /* ---------- Growth spell (the witch's magic replaces sleeping) ---------- */
       function playChime() {
         var ctx = ensureAudio();
@@ -831,42 +1056,49 @@
       /* ---------- Hired golems (automation) ---------- */
       var MAX_WORKERS = 6;
       var workers = [];
-      var WORKER_TINTS = [0x9a8f85, 0x7f8c99, 0xa39a7a, 0x8a97a5, 0x97877f, 0x7d8f7a];
-      function hireCost() { return Math.round(60 * Math.pow(1.8, workers.length)); }
 
-      /* Summoning is magic too: the golem rises out of the magic circle.
-         Only ever called with the witch standing on the circle. */
-      function summonGolem() {
+      /* Summoning is magic: the golem rises out of the magic circle.
+         Only ever called with the witch standing on the circle.
+         The TYPE is decided by the materials spent (see GOLEM_TYPES). */
+      function summonGolem(type) {
+        type = type || pendingGolemType || GOLEM_TYPES[0];
         if (workers.length >= MAX_WORKERS) { toast("召喚ゴーレムは最大 " + MAX_WORKERS + " 体までだよ"); return; }
-        var cost = hireCost();
-        if (coins < cost) { toast("コインが足りない… あと " + (cost - coins) + " 枚で召喚できるよ"); return; }
-        coins -= cost;
+        if (!canAffordType(type)) { toast(type.name + "の素材が足りない… 不足：" + missingText(type) + "（土=畑の収穫／石・水晶=北の岩場／貝・珊瑚・真珠=南の浜辺）"); return; }
+        coins -= golemCoinCost(type);
+        for (var mk in type.recipe) materials[mk] -= type.recipe[mk];
         spellCasts += 1;
         workers.push({
           x: MAGIC.x + (Math.random() * 16 - 8), y: MAGIC.y + (Math.random() * 12 - 6),
           targetPlot: -1, mode: "", cool: 0, think: Math.random() * 0.3,
           wx: 0, wy: 0, wandering: false,
           face: 1, angle: Math.PI, step: Math.random() * 6, moving: false,
-          tint: WORKER_TINTS[workers.length % WORKER_TINTS.length],
-          mesh: null
+          tint: type.tint,
+          mesh: null,
+          typeId: type.id, typeName: type.name, speed: type.speed,
+          life: type.lifeSec, lifeJobs: type.lifeJobs, jobs: 0, warned: false
         });
         particles.push({ x: MAGIC.x, y: MAGIC.y - 14, vy: -38, life: 1.2, text: "🔮", color: "#8a5fc0", size: 19 });
         particles.push({ x: MAGIC.x - 20, y: MAGIC.y + 4, vy: -30, life: 1.0, text: "✨", color: "#8a5fc0", size: 16 });
         particles.push({ x: MAGIC.x + 20, y: MAGIC.y + 4, vy: -30, life: 1.0, text: "✨", color: "#b8860b", size: 16 });
         playChime();
-        toast("🔮 魔法陣からゴーレムを召喚！ " + workers.length + " 体目が自動で働きはじめた");
+        toast("🔮 " + type.name + "を召喚！ " + type.desc + "／寿命 " + type.lifeSec + "秒・作業" + type.lifeJobs + "回まで");
         refreshUI();
       }
-      hireBtn.addEventListener("click", function () {
-        if (!started) return;
-        if (workers.length >= MAX_WORKERS) { toast("召喚ゴーレムは最大 " + MAX_WORKERS + " 体までだよ"); return; }
-        if (coins < hireCost()) { toast("コインが足りない… あと " + (hireCost() - coins) + " 枚で召喚できるよ"); return; }
-        if (witchOnCircle()) {
-          summonGolem();
-        } else {
-          sendWitchToCircle("summon");
-          toast("🔮 召喚も魔法。魔法陣へ歩いて行ってから召喚するね…");
-        }
+      GOLEM_TYPES.forEach(function (gt) {
+        var gb = summonBtns[gt.id];
+        if (!gb) return;
+        gb.addEventListener("click", function () {
+          if (!started) return;
+          if (workers.length >= MAX_WORKERS) { toast("召喚ゴーレムは最大 " + MAX_WORKERS + " 体までだよ"); return; }
+          if (!canAffordType(gt)) { toast(gt.name + "はまだ召喚できない… 不足：" + missingText(gt) + "（土=畑の収穫／石・水晶=北の岩場／貝・珊瑚・真珠=南の浜辺）"); return; }
+          pendingGolemType = gt;
+          if (witchOnCircle()) {
+            summonGolem(gt);
+          } else {
+            sendWitchToCircle("summon");
+            toast("🔮 召喚も魔法。魔法陣へ歩いて行ってから" + gt.name + "を召喚するね…");
+          }
+        });
       });
 
       function releaseClaim(w) {
@@ -888,6 +1120,25 @@
         return best;
       }
       function updateWorkers(dt) {
+        // Lifespan: golems are not permanent. When time or job count runs
+        // out they crumble back into the earth and must be re-summoned.
+        for (var wi = workers.length - 1; wi >= 0; wi--) {
+          var ww = workers[wi];
+          ww.life -= dt;
+          if (!ww.warned && ww.life <= 30) {
+            ww.warned = true;
+            particles.push({ x: ww.x, y: ww.y - 26, vy: -28, life: 1.2, text: "⏳ あと少し…", color: "#c0392b", size: 14 });
+            toast("⏳ ゴーレム1体の寿命が残りわずか… 役目を終えたら素材を集めて再召喚してね");
+          }
+          if (ww.life <= 0 || ww.jobs >= (ww.lifeJobs || 25)) {
+            releaseClaim(ww);
+            particles.push({ x: ww.x, y: ww.y - 10, vy: -30, life: 1.4, text: "🗿✨ 役目を終えた", color: "#5d666e", size: 15 });
+            if (ww.mesh && workerGroup) { workerGroup.remove(ww.mesh); }
+            workers.splice(wi, 1);
+            toast("🗿 ゴーレムが役目を終えて土に還った… 素材（土・石・海の幸）を集めて再召喚しよう");
+            refreshUI();
+          }
+        }
         workers.forEach(function (w) {
           w.moving = false;
           if (w.cool > 0) { w.cool -= dt; return; }
@@ -911,8 +1162,8 @@
                 w.targetPlot = pi; w.mode = "plant"; plots[pi].claim = w;
               } else {
                 w.wandering = true;
-                w.wx = 40 + Math.random() * (LOGICAL - 80);
-                w.wy = GROUND_TOP + 24 + Math.random() * (LOGICAL - GROUND_TOP - 48);
+                w.wx = 40 + Math.random() * (LOGICAL_W - 80);
+                w.wy = GROUND_TOP + 24 + Math.random() * (LOGICAL_H - GROUND_TOP - 48);
               }
             }
           }
@@ -926,8 +1177,10 @@
           var dist = Math.hypot(dx, dy);
           if (dist < 7) {
             if (w.targetPlot >= 0) {
-              if (w.mode === "harvest") harvestPlot(w.targetPlot, false);
-              else if (w.mode === "plant") plantPlot(w.targetPlot, CROPS[selected]);
+              var didWork = false;
+              if (w.mode === "harvest") didWork = harvestPlot(w.targetPlot, false);
+              else if (w.mode === "plant") didWork = plantPlot(w.targetPlot, CROPS[selected]);
+              if (didWork) w.jobs += 1;
               releaseClaim(w);
               w.cool = 0.55;
             } else {
@@ -937,7 +1190,7 @@
             refreshUI();
             return;
           }
-          var sp = 128;
+          var sp = w.speed || 128;
           w.x += (dx / dist) * sp * dt;
           w.y += (dy / dist) * sp * dt;
           w.angle = Math.atan2(dx, dy);
@@ -949,6 +1202,8 @@
 
       /* ---------- Update (logic) ---------- */
       function update(dt) {
+        if (rockCool > 0) rockCool -= dt;
+        if (beachCool > 0) beachCool -= dt;
         // Witch walks to her click target, then works the plot
         var t = player.target;
         player.moving = false;
@@ -963,6 +1218,10 @@
               if (witchOnCircle()) castGrowthSpell();
             } else if (arriveAction === "summon") {
               if (witchOnCircle()) summonGolem();
+            } else if (arriveAction === "rock") {
+              gatherRock();
+            } else if (arriveAction === "beach") {
+              gatherBeach();
             } else if (plotIdx >= 0) workPlot(plotIdx);
           } else {
             player.x += (dx / dist) * player.speed * dt;
@@ -973,8 +1232,8 @@
             player.moving = true;
           }
         }
-        player.x = Math.max(16, Math.min(LOGICAL - 16, player.x));
-        player.y = Math.max(PLAYER_MIN_Y, Math.min(LOGICAL - 8, player.y));
+        player.x = Math.max(16, Math.min(LOGICAL_W - 16, player.x));
+        player.y = Math.max(PLAYER_MIN_Y, Math.min(LOGICAL_H - 8, player.y));
 
         // Standing on the circle sheds a little magic dust now and then
         if (witchOnCircle() && Math.random() < dt * 2.2) {
@@ -1010,11 +1269,14 @@
       var fxCanvas = document.getElementById("fx");
       var fx = fxCanvas.getContext("2d");
       var SCALE = 0.02; // logical px -> world units
-      function wx(lx) { return (lx - LOGICAL / 2) * SCALE; }
-      function wz(ly) { return (ly - LOGICAL / 2) * SCALE; }
+      function wx(lx) { return (lx - LOGICAL_W / 2) * SCALE; }
+      function wz(ly) { return (ly - LOGICAL_H / 2) * SCALE; }
+      function currentHalf() { return Math.max(8.9, Math.max(LOGICAL_W, LOGICAL_H) * SCALE / 2 + 2.6); }
 
       var scene, camera, renderer, witchMesh, plotMeshes = [], workerGroup;
       var cloudGroups = [];
+      var islandGroup = null, plotGroup = null, mountainGroup = null, seaGroup = null;
+      var rockGroup = null, beachGroup = null, gatherHitMeshes = [], sunLight = null;
       var magicGroup = null, magicSpin = null, magicHitMesh = null;
       var magicDiscMat = null, magicRingMat = null;
       var threeOK = typeof THREE !== "undefined";
@@ -1253,10 +1515,157 @@
         return g;
       }
 
+      /* Island plinth + grass, sized from the CURRENT logical map so a
+         block expansion visibly widens the floating island itself. */
+      function buildIsland() {
+        if (!scene) return;
+        if (islandGroup) scene.remove(islandGroup);
+        islandGroup = new THREE.Group();
+        var gw = LOGICAL_W * SCALE + 1.44, gd = LOGICAL_H * SCALE + 1.44;
+        var plinth = box(gw + 0.6, 0.9, gd + 0.6, dark ? 0x4a3a28 : 0x8a6844, 0, -0.75, 0);
+        plinth.castShadow = false;
+        islandGroup.add(plinth);
+        var grass = box(gw, 0.5, gd, dark ? 0x33512e : 0x79bd57, 0, -0.25, 0);
+        grass.castShadow = false;
+        islandGroup.add(grass);
+        // Sandy shore along the SOUTH edge (logical bottom, sea side)
+        var shore = box(gw, 0.07, 42 * SCALE, dark ? 0x4a3d2c : 0xe6cf9e, 0, 0.03, wz(LOGICAL_H - 21));
+        shore.castShadow = false;
+        islandGroup.add(shore);
+        scene.add(islandGroup);
+      }
+      /* Scenery by compass: mountains to the NORTH (screen upper-right,
+         -Z beyond the island), sea to the SOUTH (screen lower-left, +Z/-X). */
+      function buildScenery() {
+        if (!scene) return;
+        if (mountainGroup) scene.remove(mountainGroup);
+        if (seaGroup) scene.remove(seaGroup);
+        mountainGroup = new THREE.Group();
+        var peakCols = [0x7d8894, 0x6e7a86, 0x87929e, 0x75808c, 0x828e99, 0x6e7a86];
+        for (var mi = 0; mi < 6; mi++) {
+          var mh = 1.7 + ((mi * 37) % 10) / 6;
+          // Ridge runs along the screen-horizontal axis (+X/-Z diagonal)
+          // so the range reads as the northern skyline (upper-right = north)
+          var ms = -5 + mi * 2;
+          var px = ms * 0.707, pz = -ms * 0.707;
+          var peak = cone(1.15, mh, peakCols[mi], px, mh / 2 - 0.55, pz, 7);
+          mountainGroup.add(peak);
+          var cap = cone(0.48, mh * 0.34, 0xffffff, px, mh / 2 - 0.55 + mh * 0.40, pz, 7);
+          mountainGroup.add(cap);
+        }
+        scene.add(mountainGroup);
+        seaGroup = new THREE.Group();
+        var sea = box(34, 0.22, 18, dark ? 0x1d4e6b : 0x3f8fc2, 0, 0, 0);
+        sea.castShadow = false;
+        seaGroup.add(sea);
+        var foam = box(34, 0.26, 0.5, dark ? 0x9fc6d8 : 0xdff6ff, 0, 0.02, -8.4);
+        foam.castShadow = false;
+        seaGroup.add(foam);
+        for (var fi2 = 0; fi2 < 7; fi2++) {
+          var wave = ball(0.5 + (fi2 % 3) * 0.18, dark ? 0x2a6a8f : 0x63aede, -11 + fi2 * 3.6, 0.10, -4 + (fi2 % 4) * 2.6, 0.28);
+          wave.castShadow = false;
+          seaGroup.add(wave);
+        }
+        scene.add(seaGroup);
+        layoutScenery();
+      }
+      function layoutScenery() {
+        if (mountainGroup) { var nd = (Math.max(LOGICAL_W, LOGICAL_H) * SCALE / 2) + 1.1; mountainGroup.position.set(-nd * 0.72, 0, -nd * 0.72); }
+        if (seaGroup) seaGroup.position.set(-LOGICAL_W * SCALE * 0.16, -1.55, (LOGICAL_H * SCALE / 2) + 8.6);
+        if (rockGroup) rockGroup.position.set(wx(ROCK_SPOT.x), 0, wz(ROCK_SPOT.y));
+        if (beachGroup) beachGroup.position.set(wx(BEACH_SPOT.x), 0, wz(BEACH_SPOT.y));
+      }
+      /* Gathering spots: rock pile at the northern mountain foot,
+         shells on the southern beach. Clickable via gatherHitMeshes. */
+      function buildGatherSpots() {
+        if (!scene) return;
+        if (rockGroup) scene.remove(rockGroup);
+        if (beachGroup) scene.remove(beachGroup);
+        gatherHitMeshes = [];
+        rockGroup = new THREE.Group();
+        rockGroup.add(ball(0.34, 0x7d8894, -0.2, 0.14, 0, 0.75));
+        rockGroup.add(ball(0.26, 0x6e7a86, 0.22, 0.11, 0.08, 0.75));
+        rockGroup.add(ball(0.16, 0x9aa5b1, 0, 0.34, -0.05, 0.8));
+        rockGroup.add(ball(0.09, 0xb18cff, 0.14, 0.30, 0.14, 1));
+        var rockHit = new THREE.Mesh(new THREE.CircleGeometry(0.62, 20),
+          new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
+        rockHit.rotation.x = -Math.PI / 2; rockHit.position.y = 0.06;
+        rockHit.userData.gather = "rock";
+        rockGroup.add(rockHit); gatherHitMeshes.push(rockHit);
+        scene.add(rockGroup);
+        beachGroup = new THREE.Group();
+        var sand = new THREE.Mesh(new THREE.CircleGeometry(0.58, 22), mat(dark ? 0x4a3d2c : 0xeed9a4));
+        sand.rotation.x = -Math.PI / 2; sand.position.y = 0.045;
+        beachGroup.add(sand);
+        beachGroup.add(ball(0.11, 0xffc7d6, -0.2, 0.08, 0.1, 0.55));
+        beachGroup.add(ball(0.09, 0xffffff, 0.16, 0.07, -0.08, 0.55));
+        beachGroup.add(ball(0.08, 0xff9d76, 0.05, 0.07, 0.22, 0.55));
+        var beachHit = new THREE.Mesh(new THREE.CircleGeometry(0.62, 20),
+          new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }));
+        beachHit.rotation.x = -Math.PI / 2; beachHit.position.y = 0.06;
+        beachHit.userData.gather = "beach";
+        beachGroup.add(beachHit); gatherHitMeshes.push(beachHit);
+        scene.add(beachGroup);
+        layoutScenery();
+      }
+      function buildPlotMeshes() {
+        if (!scene) return;
+        if (plotGroup) scene.remove(plotGroup);
+        plotGroup = new THREE.Group();
+        plotMeshes = [];
+        var soilGeo = new THREE.BoxGeometry(PLOT * SCALE, 0.16, PLOT * SCALE);
+        var soilMat = mat(dark ? 0x4c3a26 : 0x96683c);
+        var furrowGeo = new THREE.BoxGeometry(PLOT * SCALE - 0.18, 0.03, 0.07);
+        var furrowMat = mat(dark ? 0x3a2a1a : 0x7a5327);
+        for (var i = 0; i < plots.length; i++) {
+          var r = plotRect(i);
+          var grp = new THREE.Group();
+          var soil = new THREE.Mesh(soilGeo, soilMat);
+          soil.position.y = 0.08;
+          soil.receiveShadow = true;
+          soil.userData.plotIndex = i;
+          grp.add(soil);
+          for (var f = 0; f < 3; f++) {
+            var fu = new THREE.Mesh(furrowGeo, furrowMat);
+            fu.position.set(0, 0.17, -0.42 + f * 0.42);
+            grp.add(fu);
+          }
+          var hl = new THREE.Mesh(new THREE.PlaneGeometry(PLOT * SCALE + 0.14, PLOT * SCALE + 0.14),
+            new THREE.MeshBasicMaterial({ color: 0xffe14d, transparent: true, opacity: 0.38, depthWrite: false }));
+          hl.rotation.x = -Math.PI / 2;
+          hl.position.y = 0.19;
+          hl.visible = false;
+          hl.name = "highlight";
+          grp.add(hl);
+          var cropHolder = new THREE.Group();
+          cropHolder.position.y = 0.16;
+          cropHolder.name = "cropHolder";
+          grp.add(cropHolder);
+          grp.position.set(wx(r.x + r.w / 2), 0, wz(r.y + r.h / 2));
+          plotGroup.add(grp);
+          plotMeshes.push({ group: grp, soil: soil, highlight: hl, cropHolder: cropHolder, stageKey: "-1" });
+        }
+        scene.add(plotGroup);
+      }
+      function rebuildIslandAndPlots() {
+        if (!scene) return;
+        buildIsland();
+        buildPlotMeshes();
+        buildScenery();
+        buildGatherSpots();
+        if (sunLight) {
+          var hb = currentHalf() + 2;
+          sunLight.shadow.camera.left = -hb; sunLight.shadow.camera.right = hb;
+          sunLight.shadow.camera.top = hb; sunLight.shadow.camera.bottom = -hb;
+          sunLight.shadow.camera.updateProjectionMatrix();
+        }
+        resize();
+      }
+
       function initThree() {
         scene = new THREE.Scene();
         var aspect = 1;
-        var HALF = 8.9;
+        var HALF = currentHalf();
         camera = new THREE.OrthographicCamera(-HALF * aspect, HALF * aspect, HALF, -HALF, 0.1, 100);
         camera.position.set(13, 13, 13);
         camera.lookAt(0, -0.4, 0);
@@ -1273,22 +1682,16 @@
         sun.position.set(6, 11, 4);
         sun.castShadow = true;
         sun.shadow.mapSize.set(1024, 1024);
-        sun.shadow.camera.left = -9; sun.shadow.camera.right = 9;
-        sun.shadow.camera.top = 9; sun.shadow.camera.bottom = -9;
+        sun.shadow.camera.left = -11; sun.shadow.camera.right = 11;
+        sun.shadow.camera.top = 11; sun.shadow.camera.bottom = -11;
         sun.shadow.camera.far = 40;
+        sunLight = sun;
         scene.add(sun);
 
-        // Diorama plinth + grass top
-        var plinth = box(12.6, 0.9, 12.6, dark ? 0x4a3a28 : 0x8a6844, 0, -0.75, 0);
-        plinth.castShadow = false;
-        scene.add(plinth);
-        var grass = box(12.0, 0.5, 12.0, dark ? 0x33512e : 0x79bd57, 0, -0.25, 0);
-        grass.castShadow = false;
-        scene.add(grass);
-        // Sandy path along the bottom (logical y > 488)
-        var path = box(12.0, 0.06, (LOGICAL - 488) * SCALE, dark ? 0x4a3d2c : 0xe6cf9e, 0, 0.03, wz((488 + LOGICAL) / 2));
-        path.castShadow = false;
-        scene.add(path);
+        // Diorama island (resized on expansion) + compass scenery:
+        // mountains NORTH (upper-right), sea SOUTH (lower-left)
+        buildIsland();
+        buildScenery();
 
         // House (top-left) — the witch's cottage
         var house = new THREE.Group();
@@ -1379,39 +1782,9 @@
           cloudGroups.push(cl);
         }
 
-        // Plots: soil + furrows + highlight + crop slot
-        var soilGeo = new THREE.BoxGeometry(PLOT * SCALE, 0.16, PLOT * SCALE);
-        var soilMat = mat(dark ? 0x4c3a26 : 0x96683c);
-        var furrowGeo = new THREE.BoxGeometry(PLOT * SCALE - 0.18, 0.03, 0.07);
-        var furrowMat = mat(dark ? 0x3a2a1a : 0x7a5327);
-        for (var i = 0; i < plots.length; i++) {
-          var r = plotRect(i);
-          var grp = new THREE.Group();
-          var soil = new THREE.Mesh(soilGeo, soilMat);
-          soil.position.y = 0.08;
-          soil.receiveShadow = true;
-          soil.userData.plotIndex = i;
-          grp.add(soil);
-          for (var f = 0; f < 3; f++) {
-            var fu = new THREE.Mesh(furrowGeo, furrowMat);
-            fu.position.set(0, 0.17, -0.42 + f * 0.42);
-            grp.add(fu);
-          }
-          var hl = new THREE.Mesh(new THREE.PlaneGeometry(PLOT * SCALE + 0.14, PLOT * SCALE + 0.14),
-            new THREE.MeshBasicMaterial({ color: 0xffe14d, transparent: true, opacity: 0.38, depthWrite: false }));
-          hl.rotation.x = -Math.PI / 2;
-          hl.position.y = 0.19;
-          hl.visible = false;
-          hl.name = "highlight";
-          grp.add(hl);
-          var cropHolder = new THREE.Group();
-          cropHolder.position.y = 0.16;
-          cropHolder.name = "cropHolder";
-          grp.add(cropHolder);
-          grp.position.set(wx(r.x + r.w / 2), 0, wz(r.y + r.h / 2));
-          scene.add(grp);
-          plotMeshes.push({ group: grp, soil: soil, highlight: hl, cropHolder: cropHolder, stageKey: "-1" });
-        }
+        // Plots (rebuildable so expansions add whole new blocks of soil)
+        buildPlotMeshes();
+        buildGatherSpots();
 
         // Witch + golem container
         witchMesh = buildWitch();
@@ -1438,6 +1811,21 @@
               return;
             }
           }
+          // Gathering spots: north rock pile / south beach
+          if (gatherHitMeshes.length) {
+            var gHits = raycaster.intersectObjects(gatherHitMeshes, false);
+            if (gHits.length > 0) {
+              var kind = gHits[0].object.userData.gather;
+              if (kind === "rock") {
+                player.target = { x: ROCK_SPOT.x, y: ROCK_SPOT.y, plot: -1, action: "rock" };
+                toast("⛰️ 北の山の岩場へ向かうね（石・水晶が拾えるよ）");
+              } else {
+                player.target = { x: BEACH_SPOT.x, y: BEACH_SPOT.y, plot: -1, action: "beach" };
+                toast("🌊 南の浜辺へ向かうね（海の幸が拾えるよ）");
+              }
+              return;
+            }
+          }
           var soils = plotMeshes.map(function (pm) { return pm.soil; });
           var hits = raycaster.intersectObjects(soils, false);
           if (hits.length > 0) {
@@ -1448,11 +1836,17 @@
           }
           var hitPoint = new THREE.Vector3();
           if (raycaster.ray.intersectPlane(groundPlane, hitPoint)) {
-            var lx = hitPoint.x / SCALE + LOGICAL / 2;
-            var ly = hitPoint.z / SCALE + LOGICAL / 2;
-            lx = Math.max(16, Math.min(LOGICAL - 16, lx));
-            ly = Math.max(PLAYER_MIN_Y, Math.min(LOGICAL - 8, ly));
-            if (pointOnCircle(lx, ly)) {
+            var lx = hitPoint.x / SCALE + LOGICAL_W / 2;
+            var ly = hitPoint.z / SCALE + LOGICAL_H / 2;
+            lx = Math.max(16, Math.min(LOGICAL_W - 16, lx));
+            ly = Math.max(PLAYER_MIN_Y, Math.min(LOGICAL_H - 8, ly));
+            if (Math.hypot(lx - ROCK_SPOT.x, ly - ROCK_SPOT.y) <= 52) {
+              player.target = { x: ROCK_SPOT.x, y: ROCK_SPOT.y, plot: -1, action: "rock" };
+              toast("⛰️ 北の山の岩場へ向かうね（石・水晶が拾えるよ）");
+            } else if (Math.hypot(lx - BEACH_SPOT.x, ly - BEACH_SPOT.y) <= 52) {
+              player.target = { x: BEACH_SPOT.x, y: BEACH_SPOT.y, plot: -1, action: "beach" };
+              toast("🌊 南の浜辺へ向かうね（海の幸が拾えるよ）");
+            } else if (pointOnCircle(lx, ly)) {
               sendWitchToCircle(null);
               toast("🔮 魔法陣へ移動。ここでなら魔法が使えるよ");
             } else {
@@ -1471,7 +1865,7 @@
         renderer.domElement.style.width = "100%";
         renderer.domElement.style.height = "100%";
         var aspect = w / h;
-        var HALF = 8.9;
+        var HALF = currentHalf();
         camera.left = -HALF * aspect; camera.right = HALF * aspect;
         camera.top = HALF; camera.bottom = -HALF;
         camera.updateProjectionMatrix();

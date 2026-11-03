@@ -246,7 +246,7 @@
       .seed-btn.locked .face { filter: grayscale(1); }
       .seed-btn.locked .name { font-size: 12px; }
       .seed-btn.locked .have { color: var(--ink-soft); }
-      .seed-detail {
+      .seed-detail, .golem-detail {
         font-size: 12.5px; font-weight: 600; line-height: 1.45;
         color: var(--ink-soft);
         background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
@@ -254,8 +254,9 @@
         padding: 6px 10px;
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
       }
-      .seed-detail b { color: var(--ink); }
-      .seed-detail .price { color: var(--coin); font-weight: 800; }
+      .seed-detail b, .golem-detail b { color: var(--ink); }
+      .seed-detail .price, .golem-detail .price { color: var(--coin); font-weight: 800; }
+      .golem-detail .miss { color: var(--danger); font-weight: 800; }
       /* ---------- Bottom bars ---------- */
       .spell-btn {
         width: 100%;
@@ -308,13 +309,16 @@
       }
       .view-reset:active { transform: scale(.96); }
       .matbar {
-        display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+        display: flex; gap: 6px; flex-wrap: nowrap; align-items: center;
+        overflow-x: auto; overflow-y: hidden;
+        scrollbar-width: thin; -webkit-overflow-scrolling: touch;
         background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
-        box-shadow: var(--shadow); padding: 7px 10px; font-size: 12px; font-weight: 700;
+        box-shadow: var(--shadow); padding: 6px 10px; font-size: 12px; font-weight: 700;
       }
-      .matbar .src { color: var(--ink-soft); font-size: 11px; }
-      .matbar .m { background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 3px 9px; }
-      .gtimer { font-weight: 800; color: var(--ink-soft); margin-left: 5px; white-space: nowrap; }
+      .matbar .mat-label { flex: 0 0 auto; font-size: 14px; line-height: 1; }
+      .matbar .m { flex: 0 0 auto; white-space: nowrap; background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 3px 9px; }
+      .matbar .m b { font-weight: 800; }
+      .gtimer { font-weight: 800; font-size: 10.5px; color: var(--ink-soft); margin-left: 5px; white-space: nowrap; }
       .gtimer.ready { color: var(--accent-dark); }
       .circle-status strong { color: #7a4fc0; }
       @media (prefers-color-scheme: dark) {
@@ -349,25 +353,49 @@
       @media (prefers-reduced-motion: reduce) {
         .matbar .m.flash { animation: none; }
       }
+      /* ---------- Golem summon (compact chips, mirrors the seed chips) ---------- */
       .hirebar {
-        display: flex; gap: 10px; align-items: center;
+        display: flex; flex-direction: column; gap: 6px;
         background: var(--panel);
         border: 1px solid var(--line);
         border-radius: 14px;
         box-shadow: var(--shadow);
-        padding: 9px 12px;
+        padding: 8px 10px;
       }
-      .hire-info { flex: 1; min-width: 0; }
-      .hire-info .icons { font-size: 17px; letter-spacing: 1px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-      .hire-info .count { font-size: 12px; font-weight: 700; color: var(--ink-soft); display: block; margin-top: 1px; }
+      .hire-info { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; min-width: 0; }
+      .hire-info .icons { font-size: 15px; letter-spacing: 1px; white-space: nowrap; }
+      .hire-info .count { font-size: 12px; font-weight: 700; color: var(--ink-soft); white-space: nowrap; }
+      .life-chips { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+      .life-chip {
+        font-size: 11px; font-weight: 700; white-space: nowrap;
+        background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 1px 7px;
+      }
+      .life-chip.low { color: var(--danger); border-color: var(--danger); }
+      .summonbar {
+        display: flex; flex-wrap: nowrap; gap: 6px;
+        overflow-x: auto; overflow-y: hidden;
+        padding: 2px 2px 4px;
+        scrollbar-width: thin;
+        -webkit-overflow-scrolling: touch;
+      }
       .hire-btn {
-        flex: none;
-        background: #6e7a87; color: #fff; border: 0; border-radius: 12px;
-        padding: 11px 14px; font-size: 14px; font-weight: 800; cursor: pointer; font-family: inherit;
-        box-shadow: 0 3px 0 #4d5763;
+        flex: 0 0 auto;
+        display: inline-flex; align-items: center; gap: 5px;
+        background: var(--panel); color: var(--ink);
+        border: 2px solid var(--line); border-radius: 999px;
+        padding: 5px 10px 5px 8px;
+        font-size: 12.5px; font-weight: 700; cursor: pointer; font-family: inherit;
+        white-space: nowrap;
+        transition: border-color .15s, background .15s, transform .1s;
       }
-      .hire-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #4d5763; }
-      .hire-btn.maxed { background: var(--line); color: var(--ink-soft); box-shadow: none; }
+      .hire-btn:active { transform: scale(.97); }
+      .hire-btn.selected { border-color: #8a5fc0; background: color-mix(in srgb, #8a5fc0 12%, var(--panel)); box-shadow: 0 0 0 2px color-mix(in srgb, #8a5fc0 28%, transparent); }
+      .hire-btn .face { font-size: 15px; line-height: 1; }
+      .hire-btn .blife { font-size: 11px; font-weight: 800; color: var(--ink-soft); }
+      .hire-btn .miss { font-size: 10.5px; font-weight: 800; color: var(--danger); background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 0 6px; line-height: 1.6; }
+      .hire-btn.cant { opacity: .65; }
+      .hire-btn.cant .face { filter: grayscale(.6); }
+      .hire-btn.maxed { background: var(--line); color: var(--ink-soft); border-color: var(--line); box-shadow: none; }
       /* ---------- Farm expansion (区画拡張) ---------- */
       .expandbar {
         display: flex; gap: 10px; align-items: center;
@@ -480,25 +508,28 @@
       <button class="spell-btn" id="spellBtn" type="button">🪄 成長促進魔法（魔法陣の上で発動）</button>
       <p class="circle-status" id="circleStatus">🔮 魔法は<strong>小屋の隣の魔法陣</strong>の上でしか使えません。魔法陣か魔法ボタンを押すと、魔女が魔法陣まで歩いて行って発動します。</p>
 
-      <div class="hirebar" style="flex-wrap:wrap;">
-        <div class="hire-info" style="flex:1 1 100%;">
+      <div class="hirebar">
+        <div class="hire-info">
           <span class="icons" id="golemIcons">🧙</span>
-          <span class="count" id="golemCount">召喚ゴーレム 0体 — まだ魔女ひとりで作業中</span>
+          <span class="count" id="golemCount">召喚ゴーレム 0体 — 魔女ひとりで作業中</span>
+          <span class="life-chips" id="golemLives"></span>
         </div>
-        <button class="hire-btn" id="summonSoil" type="button" style="flex:1;">🟤 土ゴーレム召喚</button>
-        <button class="hire-btn" id="summonStone" type="button" style="flex:1;">🪨 石ゴーレム召喚</button>
-        <button class="hire-btn" id="summonCrystal" type="button" style="flex:1;">🔮 水晶ゴーレム召喚</button>
+        <div class="summonbar" id="summonbar" role="group" aria-label="ゴーレム召喚">
+          <button class="hire-btn" id="summonSoil" type="button">🟤 土ゴーレム</button>
+          <button class="hire-btn" id="summonStone" type="button">🪨 石ゴーレム</button>
+          <button class="hire-btn" id="summonCrystal" type="button">🔮 水晶ゴーレム</button>
+        </div>
+        <div class="golem-detail" id="golemDetail" aria-live="polite"></div>
       </div>
 
-      <div class="matbar" id="matBar">
-        <span>🧺 素材</span>
-        <span class="m">🟤 土 <span id="matSoil">3</span><span class="src">（畑：収穫で入手）</span></span>
-        <span class="m">🪨 石 <span id="matStone">1</span><span class="src">（北の山：右上の岩場）</span><span class="gtimer" id="rockTimer"></span></span>
-        <span class="m">🔮 水晶 <span id="matCrystal">0</span><span class="src">（北の山：まれ）</span></span>
-        <span class="m">🐚 貝 <span id="matShell">1</span><span class="gtimer" id="beachTimer"></span></span>
-        <span class="m">🪸 珊瑚 <span id="matCoral">0</span></span>
-        <span class="m">🦪 真珠 <span id="matPearl">0</span></span>
-        <span class="src">採取場所：土＝畑の収穫で入手／石・水晶＝北（右上）の岩場をクリック／貝・珊瑚・真珠＝南（左下）の浜辺をクリック（各20秒に1回）。素材でゴーレムの種類が変わります：土ゴーレム＝土×3・貝×1／石ゴーレム＝石×3・土×2・珊瑚×1／水晶ゴーレム＝水晶×2・真珠×1・石×1</span>
+      <div class="matbar" id="matBar" aria-label="素材">
+        <span class="mat-label">🧺</span>
+        <span class="m">🟤 土 <b id="matSoil">3</b></span>
+        <span class="m">🪨 石 <b id="matStone">1</b><span class="gtimer" id="rockTimer"></span></span>
+        <span class="m">🔮 水晶 <b id="matCrystal">0</b></span>
+        <span class="m">🐚 貝 <b id="matShell">1</b><span class="gtimer" id="beachTimer"></span></span>
+        <span class="m">🪸 珊瑚 <b id="matCoral">0</b></span>
+        <span class="m">🦪 真珠 <b id="matPearl">0</b></span>
       </div>
 
       <div class="autobar" id="autoBar">
@@ -628,6 +659,7 @@
         { id: "crystal", name: "水晶ゴーレム", face: "🔮", coins: 320, speed: 178, lifeSec: 260, lifeJobs: 45, tint: 0xb18cff, recipe: { crystal: 2, pearl: 1, stone: 1 }, desc: "最速・最長寿命の上位種" }
       ];
       var pendingGolemType = GOLEM_TYPES[0];
+      var selectedGolemId = "soil"; // type whose detail line is shown under the summon chips
       function golemTypeById(id) { for (var gi2 = 0; gi2 < GOLEM_TYPES.length; gi2++) if (GOLEM_TYPES[gi2].id === id) return GOLEM_TYPES[gi2]; return GOLEM_TYPES[0]; }
       function golemCoinCost(type) { return type.coins + workers.length * 30; }
       function recipeText(type) {
@@ -895,24 +927,48 @@
             }
           }
         }
-        // Summon bar (golems are summoned at the magic circle, not hired)
+        // Summon bar (compact chips, mirroring the seed chips): the
+        // status stays one short line, each active golem gets a small
+        // remaining-life chip, summon chips always show only face +
+        // name + lifespan, and the selected type's recipe / cost /
+        // shortage detail lives in a single line under the chips.
         var icons = "🧙";
         for (var gi = 0; gi < workers.length; gi++) icons += "🗿";
         document.getElementById("golemIcons").textContent = icons;
         document.getElementById("golemCount").textContent = workers.length === 0
-          ? "召喚ゴーレム 0体 — まだ魔女ひとりで作業中。ゴーレムは素材で種類が変わり、寿命（時間／作業回数）が来たら土に還ります"
-          : "召喚ゴーレム " + workers.length + "体が全区画で作業中：" + workers.map(function (w) { return w.typeName + " ⏳" + Math.max(0, Math.ceil(w.life)) + "秒・作業" + w.jobs + "/" + w.lifeJobs + "回"; }).join(" ／ ");
+          ? "召喚ゴーレム 0体 — 魔女ひとりで作業中"
+          : "召喚ゴーレム " + workers.length + "体が作業中";
+        var livesEl = document.getElementById("golemLives");
+        if (livesEl) {
+          livesEl.innerHTML = workers.map(function (w) {
+            var rem = Math.max(0, Math.ceil(w.life));
+            var low = rem <= 20 || (w.lifeJobs - w.jobs) <= 3;
+            return "<span class=\"life-chip" + (low ? " low" : "") + "\">" + golemTypeById(w.typeId).face + " ⏳" + rem + "秒・" + w.jobs + "/" + w.lifeJobs + "回</span>";
+          }).join("");
+        }
         GOLEM_TYPES.forEach(function (gt) {
           var gb = summonBtns[gt.id];
           if (!gb) return;
+          gb.classList.toggle("selected", selectedGolemId === gt.id);
           if (workers.length >= MAX_WORKERS) {
-            gb.textContent = "🔮 満員（最大" + MAX_WORKERS + "体）";
+            gb.innerHTML = "<span class=\"face\">" + gt.face + "</span><span>" + gt.name + "</span><span class=\"blife\">満員</span>";
             gb.classList.add("maxed");
+            gb.classList.remove("cant");
           } else {
-            gb.innerHTML = gt.face + " " + gt.name + "（" + golemCoinCost(gt) + "枚）<br><small>" + recipeText(gt) + "／寿命" + gt.lifeSec + "秒・" + gt.lifeJobs + "回</small>";
             gb.classList.remove("maxed");
+            var afford = canAffordType(gt);
+            gb.classList.toggle("cant", !afford);
+            gb.innerHTML = "<span class=\"face\">" + gt.face + "</span><span>" + gt.name + "</span><span class=\"blife\">⏳" + gt.lifeSec + "秒</span>" +
+              (afford ? "" : "<span class=\"miss\">" + missingText(gt).split("、")[0] + "</span>");
           }
         });
+        var gdEl = document.getElementById("golemDetail");
+        if (gdEl) {
+          var sg = golemTypeById(selectedGolemId);
+          gdEl.innerHTML = "<b>" + sg.face + " " + sg.name + "</b>：<span class=\"price\">" + golemCoinCost(sg) + "枚</span>＋" + recipeText(sg) +
+            " ・ 寿命" + sg.lifeSec + "秒・作業" + sg.lifeJobs + "回 ・ " + sg.desc +
+            (canAffordType(sg) ? "" : " ／ <span class=\"miss\">不足：" + missingText(sg) + "</span>");
+        }
         // Materials inventory
         var matMap = { matSoil: materials.soil, matStone: materials.stone, matCrystal: materials.crystal, matShell: materials.shell, matCoral: materials.coral, matPearl: materials.pearl };
         for (var mid in matMap) { var mel = document.getElementById(mid); if (mel) mel.textContent = matMap[mid]; }
@@ -1297,6 +1353,8 @@
         if (!gb) return;
         gb.addEventListener("click", function () {
           if (!started) return;
+          selectedGolemId = gt.id; // tapping a chip also selects it for the detail line
+          refreshUI();
           if (workers.length >= MAX_WORKERS) { toast("召喚ゴーレムは最大 " + MAX_WORKERS + " 体までだよ"); return; }
           if (!canAffordType(gt)) { toast(gt.name + "はまだ召喚できない… 不足：" + missingText(gt) + "（土=畑の収穫／石・水晶=北の岩場／貝・珊瑚・真珠=南の浜辺）"); return; }
           pendingGolemType = gt;

@@ -211,36 +211,51 @@
         background: var(--accent); color: #fff; border: 0; border-radius: 999px;
         padding: 10px 22px; font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit;
       }
-      /* ---------- Seed shop ---------- */
-      .shop-head { font-size: 14px; font-weight: 800; padding: 0 2px; }
-      .shop-head span { font-size: 11px; font-weight: 600; color: var(--ink-soft); margin-left: 6px; }
-      .seedbar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
-      @media (min-width: 700px) {
-        .seedbar { grid-template-columns: repeat(7, 1fr); }
-        .seed-btn .meta { font-size: 10px; }
+      /* ---------- Seed shop (compact chips) ---------- */
+      .shop-head { font-size: 13px; font-weight: 800; padding: 0 2px; display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+      .shop-head span { font-size: 11px; font-weight: 600; color: var(--ink-soft); }
+      .seed-shop { display: flex; flex-direction: column; gap: 6px; }
+      .seedbar {
+        display: flex; flex-wrap: nowrap; gap: 6px;
+        overflow-x: auto; overflow-y: hidden;
+        padding: 2px 2px 4px;
+        scrollbar-width: thin;
+        -webkit-overflow-scrolling: touch;
       }
       .seed-btn {
+        flex: 0 0 auto;
+        display: inline-flex; align-items: center; gap: 5px;
         background: var(--panel);
         border: 2px solid var(--line);
-        border-radius: 14px;
-        padding: 8px 4px 7px;
+        border-radius: 999px;
+        padding: 5px 9px 5px 7px;
         cursor: pointer;
         font-family: inherit;
         color: var(--ink);
-        text-align: center;
-        transition: border-color .15s, transform .1s;
+        white-space: nowrap;
+        transition: border-color .15s, background .15s, transform .1s;
       }
       .seed-btn:active { transform: scale(.97); }
-      .seed-btn.selected { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent); }
-      .seed-btn .face { font-size: 24px; display: block; line-height: 1.15; }
-      .seed-btn .name { font-size: 13px; font-weight: 700; display: block; }
-      .seed-btn .meta { font-size: 11px; color: var(--ink-soft); display: block; margin-top: 1px; }
-      .seed-btn .meta b { color: var(--coin); }
-      .seed-btn .have { font-size: 11px; font-weight: 700; color: var(--accent-dark); display: block; margin-top: 2px; }
+      .seed-btn.selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--panel)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent); }
+      .seed-btn .face { font-size: 17px; line-height: 1; }
+      .seed-btn .name { font-size: 12.5px; font-weight: 700; }
+      .seed-btn .have { font-size: 11px; font-weight: 800; color: var(--accent-dark); background: var(--bg); border: 1px solid var(--line); border-radius: 999px; padding: 0 6px; line-height: 1.6; }
+      .seed-btn.selected .have { background: var(--panel); }
       .seed-btn.cant .have { color: var(--danger); }
-      .seed-btn.locked { opacity: .62; }
+      .seed-btn.locked { opacity: .55; padding-right: 7px; }
       .seed-btn.locked .face { filter: grayscale(1); }
+      .seed-btn.locked .name { font-size: 12px; }
       .seed-btn.locked .have { color: var(--ink-soft); }
+      .seed-detail {
+        font-size: 12.5px; font-weight: 600; line-height: 1.45;
+        color: var(--ink-soft);
+        background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+        box-shadow: var(--shadow);
+        padding: 6px 10px;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      .seed-detail b { color: var(--ink); }
+      .seed-detail .price { color: var(--coin); font-weight: 800; }
       /* ---------- Bottom bars ---------- */
       .spell-btn {
         width: 100%;
@@ -415,8 +430,11 @@
         <button class="rescue-btn" id="rescueBtn" type="button">🌱 種を3こもらう</button>
       </div>
 
-      <div class="shop-head">🛖 種屋<span>レベルが上がると新しい種が入荷します</span></div>
-      <div class="seedbar" id="seedbar" role="group" aria-label="種の選択"></div>
+      <div class="seed-shop">
+        <div class="shop-head">🛖 種屋<span>レベルが上がると新しい種が入荷します</span></div>
+        <div class="seedbar" id="seedbar" role="group" aria-label="種の選択"></div>
+        <div class="seed-detail" id="seedDetail" aria-live="polite"></div>
+      </div>
 
       <button class="spell-btn" id="spellBtn" type="button">🪄 成長促進魔法（魔法陣の上で発動）</button>
       <p class="circle-status" id="circleStatus">🔮 魔法は<strong>小屋の隣の魔法陣</strong>の上でしか使えません。魔法陣か魔法ボタンを押すと、魔女が魔法陣まで歩いて行って発動します。</p>
@@ -728,7 +746,6 @@
         b.innerHTML =
           '<span class="face">' + c.face + '</span>' +
           '<span class="name">' + c.name + '</span>' +
-          '<span class="meta">種 <b>' + c.cost + '枚</b> → ' + c.sell + '枚 / XP' + c.xp + '</span>' +
           '<span class="have"></span>';
         b.addEventListener("click", function () {
           if (c.unlockLv > level) {
@@ -779,14 +796,25 @@
           b.classList.toggle("selected", idx === selected && !locked);
           var haveEl = b.querySelector(".have");
           if (locked) {
-            haveEl.textContent = "🔒 Lv." + c.unlockLv + " で解放";
+            haveEl.textContent = "🔒Lv." + c.unlockLv;
             b.classList.remove("cant");
           } else {
             var have = seeds[c.id];
-            haveEl.textContent = have > 0 ? "種 あと " + have + " こ" : "種なし（押すと買えます）";
+            haveEl.textContent = "×" + have;
             b.classList.toggle("cant", have === 0);
           }
         });
+        var detailEl = document.getElementById("seedDetail");
+        if (detailEl) {
+          var sc = CROPS[selected];
+          if (sc) {
+            if (sc.unlockLv > level) {
+              detailEl.innerHTML = "🔒 <b>" + sc.face + " " + sc.name + "</b>：Lv." + sc.unlockLv + " で解放 ・ 種 <span class=\"price\">" + sc.cost + "枚</span> → 売値 " + sc.sell + "枚 ・ 成長 " + sc.grow + "秒 ・ XP" + sc.xp;
+            } else {
+              detailEl.innerHTML = "<b>" + sc.face + " " + sc.name + "</b>：種 <span class=\"price\">" + sc.cost + "枚</span> → 売値 " + sc.sell + "枚 ・ 成長 " + sc.grow + "秒 ・ XP" + sc.xp + " ・ 所持 " + seeds[sc.id] + "こ" + (seeds[sc.id] === 0 ? "（畝を押すと買って植えます）" : "");
+            }
+          }
+        }
         // Summon bar (golems are summoned at the magic circle, not hired)
         var icons = "🧙";
         for (var gi = 0; gi < workers.length; gi++) icons += "🗿";
